@@ -152,11 +152,18 @@ from sqlalchemy.exc import OperationalError
 
 @app.exception_handler(OperationalError)
 async def db_connection_error_handler(request, exc: OperationalError):
+    err_str = str(exc)
+    if "Network is unreachable" in err_str:
+        detail_msg = "Could not reach database server. If deploying on Render with Supabase, ensure DATABASE_URL uses the IPv4 Session/Transaction Pooler URL (*.pooler.supabase.com) rather than the direct IPv6 URL (db.supabase.co)."
+    elif "server closed the connection" in err_str or "connection reset" in err_str or "buffer" in err_str or "terminating connection" in err_str:
+        detail_msg = "Database connection closed during query. If saving a large image or payload, please ensure it is compressed or under 500KB."
+    else:
+        detail_msg = f"Database operational error: {err_str[:250]}"
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={
             "error": "Database connection error.",
-            "detail": "Could not reach database server. If deploying on Render with Supabase, ensure DATABASE_URL uses the IPv4 Session/Transaction Pooler URL (*.pooler.supabase.com) rather than the direct IPv6 URL (db.supabase.co)."
+            "detail": detail_msg
         }
     )
 
