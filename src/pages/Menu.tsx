@@ -25,6 +25,23 @@ export const Menu: React.FC = () => {
   const [price, setPrice] = useState(10);
   const [description, setDescription] = useState('');
   const [isVeg, setIsVeg] = useState(true);
+  const [imageUrl, setImageUrl] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size exceeds 10MB limit.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Filtering
   const filteredItems = menuItems.filter(item => {
@@ -47,7 +64,8 @@ export const Menu: React.FC = () => {
           price,
           description,
           category,
-          type: isVeg ? 'VEG' : 'NON-VEG'
+          type: isVeg ? 'VEG' : 'NON-VEG',
+          imageUrl: imageUrl || existing.imageUrl
         });
         alert('Menu item updated successfully!');
       }
@@ -59,7 +77,7 @@ export const Menu: React.FC = () => {
         category,
         available: true,
         type: isVeg ? 'VEG' : 'NON-VEG',
-        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300'
+        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300'
       });
       alert('Menu item added successfully!');
     }
@@ -74,6 +92,7 @@ export const Menu: React.FC = () => {
     setPrice(item.price);
     setDescription(item.description);
     setIsVeg(item.type === 'VEG');
+    setImageUrl(item.imageUrl || '');
     setShowDrawer(true);
   };
 
@@ -82,6 +101,7 @@ export const Menu: React.FC = () => {
     setDescription('');
     setPrice(10);
     setIsVeg(true);
+    setImageUrl('');
     setEditItemId(null);
     setShowDrawer(false);
   };
@@ -244,13 +264,58 @@ export const Menu: React.FC = () => {
         <form onSubmit={handleSaveDish} className="flex-1 overflow-y-auto no-scrollbar p-lg space-y-xl">
           {/* Image Upload Box */}
           <div className="space-y-sm">
-            <label className="font-label-md text-on-surface font-semibold text-sm">Food Image</label>
-            <div className="w-full h-40 border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center gap-md hover:border-primary/50 transition-colors cursor-pointer group bg-surface-container-low">
-              <Upload className="w-8 h-8 text-outline group-hover:text-primary transition-colors" />
-              <div className="text-center">
-                <p className="font-label-md text-on-surface font-semibold text-xs">Upload food photo</p>
-                <p className="text-[10px] text-outline mt-0.5">PNG, JPG up to 10MB</p>
+            <div className="flex items-center justify-between">
+              <label className="font-label-md text-on-surface font-semibold text-sm">Food Image</label>
+              {imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setImageUrl('')}
+                  className="text-xs text-error font-semibold hover:underline"
+                >
+                  Remove Photo
+                </button>
+              )}
+            </div>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleImageUpload} 
+              accept="image/png, image/jpeg, image/jpg, image/webp" 
+              className="hidden" 
+            />
+            {imageUrl ? (
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-40 rounded-xl overflow-hidden relative border-2 border-outline-variant cursor-pointer group bg-surface-container-low"
+                title="Click to change photo"
+              >
+                <img src={imageUrl} alt="Food preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-semibold text-xs gap-1.5">
+                  <Upload className="w-4 h-4" />
+                  <span>Click to change photo</span>
+                </div>
               </div>
+            ) : (
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-40 border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center gap-md hover:border-primary/50 transition-colors cursor-pointer group bg-surface-container-low"
+              >
+                <Upload className="w-8 h-8 text-outline group-hover:text-primary transition-colors" />
+                <div className="text-center">
+                  <p className="font-label-md text-on-surface font-semibold text-xs">Upload food photo</p>
+                  <p className="text-[10px] text-outline mt-0.5">PNG, JPG up to 10MB</p>
+                </div>
+              </div>
+            )}
+            {/* Optional URL input for direct image link */}
+            <div className="pt-1">
+              <input 
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Or paste image URL (https://...)"
+                className="w-full px-3 py-2 rounded-lg border border-outline-variant text-xs bg-surface-bright focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              />
             </div>
           </div>
 
