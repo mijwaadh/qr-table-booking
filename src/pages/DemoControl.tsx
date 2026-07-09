@@ -15,7 +15,8 @@ export const DemoControl: React.FC = () => {
   const [loadingAction, setLoadingAction] = useState<'NONE' | 'RESET' | 'RUSH' | 'SALES'>('NONE');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api';
+  const rawApiUrl = ((import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api').trim().replace(/\/$/, '');
+  const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 
   const triggerToast = (msg: string) => {
     setStatusMessage(msg);

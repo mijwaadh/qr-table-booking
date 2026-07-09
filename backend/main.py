@@ -39,6 +39,8 @@ manager = ConnectionManager()
 app = FastAPI(title="ServeFlow Restaurant Suite API")
 
 @app.websocket("/ws")
+@app.websocket("/")
+@app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
