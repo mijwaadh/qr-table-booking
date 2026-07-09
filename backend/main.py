@@ -6,6 +6,7 @@ import datetime
 import os
 import sys
 import random
+import uuid
 
 # Ensure the directory containing this file is on sys.path so absolute module imports work anywhere
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -197,7 +198,7 @@ def get_tables(db: Session = Depends(get_db)):
 @app.post("/api/tables", response_model=schemas.TableSchema)
 async def create_table(table: schemas.TableCreate, db: Session = Depends(get_db)):
     count = db.query(models.Table).count()
-    table_id = f"T{count + 1:02d}"
+    table_id = f"T-{uuid.uuid4().hex[:6]}"
     db_table = models.Table(
         id=table_id,
         name=table.name,
@@ -242,7 +243,7 @@ def get_menu(db: Session = Depends(get_db)):
 @app.post("/api/menu", response_model=schemas.MenuItemSchema)
 async def create_menu_item(item: schemas.MenuItemBase, db: Session = Depends(get_db)):
     count = db.query(models.MenuItem).count()
-    new_id = f"m{count + 1}"
+    new_id = f"m-{uuid.uuid4().hex[:8]}"
     db_item = models.MenuItem(
         id=new_id,
         name=item.name,
@@ -316,7 +317,7 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
         
     # Create order
     count = db.query(models.Order).count()
-    order_id = f"ord-{count + 101}"
+    order_id = f"ord-{uuid.uuid4().hex[:8]}"
     current_time = datetime.datetime.now().strftime("%I:%M %p")
     
     db_order = models.Order(
@@ -427,7 +428,7 @@ async def settle_bill(payload: schemas.PaymentCreate, db: Session = Depends(get_
     
     # Create payment record
     count = db.query(models.Payment).count()
-    pay_id = f"pay-{count + 101}"
+    pay_id = f"pay-{uuid.uuid4().hex[:8]}"
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     
     # Link to last order if exists
@@ -617,7 +618,7 @@ async def demo_lunch_rush(db: Session = Depends(get_db)):
         
         for config in rush_configs:
             count = db.query(models.Order).count()
-            order_id = f"ord-rush-{count + 101}"
+            order_id = f"ord-rush-{uuid.uuid4().hex[:8]}"
             seated_time_dt = current_time - datetime.timedelta(minutes=config["elapsed"])
             seated_time_str = seated_time_dt.strftime("%I:%M %p")
             
@@ -703,7 +704,7 @@ async def demo_simulate_sales(db: Session = Depends(get_db)):
             
             subtotal = 0.0
             order_items = []
-            order_id = f"ord-sale-{100 + i}"
+            order_id = f"ord-sale-{uuid.uuid4().hex[:8]}"
             
             for item in selected_items:
                 qty = random.randint(1, 2)

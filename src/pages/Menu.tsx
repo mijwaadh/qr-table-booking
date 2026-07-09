@@ -51,14 +51,14 @@ export const Menu: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveDish = (e: React.FormEvent) => {
+  const handleSaveDish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
 
     if (editItemId) {
       const existing = menuItems.find(i => i.id === editItemId);
       if (existing) {
-        updateMenuItem({
+        const success = await updateMenuItem({
           ...existing,
           name,
           price,
@@ -67,10 +67,13 @@ export const Menu: React.FC = () => {
           type: isVeg ? 'VEG' : 'NON-VEG',
           imageUrl: imageUrl || existing.imageUrl
         });
-        alert('Menu item updated successfully!');
+        if (success) {
+          alert('Menu item updated successfully!');
+          handleCloseDrawer();
+        }
       }
     } else {
-      addMenuItem({
+      const success = await addMenuItem({
         name,
         price,
         description,
@@ -79,10 +82,11 @@ export const Menu: React.FC = () => {
         type: isVeg ? 'VEG' : 'NON-VEG',
         imageUrl: imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300'
       });
-      alert('Menu item added successfully!');
+      if (success) {
+        alert('Menu item added successfully!');
+        handleCloseDrawer();
+      }
     }
-
-    handleCloseDrawer();
   };
 
   const handleEdit = (item: MenuItem) => {

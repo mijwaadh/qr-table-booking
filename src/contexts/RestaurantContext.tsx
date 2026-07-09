@@ -9,10 +9,10 @@ interface RestaurantContextType {
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   toggleItemCompleteInOrder: (orderId: string, itemIndex: number) => void;
   setTableStatus: (tableId: string, status: Table['status'], amount?: number) => void;
-  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
-  toggleMenuItemAvailability: (itemId: string) => void;
-  deleteMenuItem: (itemId: string) => void;
-  updateMenuItem: (item: MenuItem) => void;
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => Promise<boolean>;
+  toggleMenuItemAvailability: (itemId: string) => Promise<boolean>;
+  deleteMenuItem: (itemId: string) => Promise<boolean>;
+  updateMenuItem: (item: MenuItem) => Promise<boolean>;
   settleBill: (tableId: string, method?: string) => void;
   addTable: (name: string, seats: number) => void;
 }
@@ -164,7 +164,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
+  const addMenuItem = async (item: Omit<MenuItem, 'id'>): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/menu`, {
         method: 'POST',
@@ -173,15 +173,22 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        return true;
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert(`Failed to save dish: ${err.detail || response.statusText || 'Server Error'}`);
+        return false;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(`Network/Connection error when saving dish: ${e.message || 'Check your API connection or VITE_API_BASE_URL.'}`);
+      return false;
     }
   };
 
-  const toggleMenuItemAvailability = async (itemId: string) => {
+  const toggleMenuItemAvailability = async (itemId: string): Promise<boolean> => {
     const item = menuItems.find(i => i.id === itemId);
-    if (!item) return;
+    if (!item) return false;
     try {
       const response = await fetch(`${API_BASE_URL}/menu/${itemId}`, {
         method: 'PUT',
@@ -190,26 +197,32 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
-  const deleteMenuItem = async (itemId: string) => {
+  const deleteMenuItem = async (itemId: string): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/menu/${itemId}`, {
         method: 'DELETE'
       });
       if (response.ok) {
         await refreshData();
+        return true;
       }
+      return false;
     } catch (e) {
       console.error(e);
+      return false;
     }
   };
 
-  const updateMenuItem = async (updatedItem: MenuItem) => {
+  const updateMenuItem = async (updatedItem: MenuItem): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/menu/${updatedItem.id}`, {
         method: 'PUT',
@@ -218,9 +231,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        return true;
+      } else {
+        const err = await response.json().catch(() => ({}));
+        alert(`Failed to update dish: ${err.detail || response.statusText || 'Server Error'}`);
+        return false;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(`Network/Connection error when updating dish: ${e.message || 'Check your API connection.'}`);
+      return false;
     }
   };
 
