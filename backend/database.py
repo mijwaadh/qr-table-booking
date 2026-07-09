@@ -4,7 +4,8 @@ import psycopg
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/serveflow_db")
+raw_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/serveflow_db")
+DATABASE_URL = raw_url.strip().strip('"').strip("'").strip() if raw_url else ""
 
 def ensure_database_exists():
     try:
@@ -36,6 +37,7 @@ def ensure_database_exists():
         print(f"[Database] Notice during local auto-creation check: {e}")
 
 def resolve_working_db_url(url_str: str) -> str:
+    url_str = url_str.strip().strip('"').strip("'").strip()
     if "sqlite" in url_str:
         return url_str
     try:
@@ -46,14 +48,14 @@ def resolve_working_db_url(url_str: str) -> str:
     except Exception as e:
         err_msg = str(e)
         print(f"[Database] Connection test with provided URL failed: {err_msg}")
-        if ('database "postgres" does not exist' in err_msg or "does not exist" in err_msg) and "/postgres" in url_str:
+        if ('database "postgres' in err_msg or "does not exist" in err_msg) and "/postgres" in url_str:
             try:
                 parsed = urlparse.urlparse(url_str)
                 user = parsed.username or ""
                 if "." in user:
-                    project_id = user.split(".")[-1]
+                    project_id = user.split(".")[-1].strip()
                     if project_id and project_id != "postgres":
-                        alt_url = url_str.rsplit("/postgres", 1)[0] + f"/{project_id}"
+                        alt_url = url_str.rsplit("/postgres", 1)[0].strip() + f"/{project_id}"
                         print(f"[Database] Retrying connection with project ID database name: '{project_id}'...")
                         conn2 = psycopg.connect(alt_url, connect_timeout=10)
                         conn2.close()
