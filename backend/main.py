@@ -77,37 +77,67 @@ def seed_initial_data(db: Session):
         db.commit()
 
     # Seed Menu Items (exactly 20 items)
+    working_urls_map = {
+        "m1": "https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&q=80&w=300",
+        "m2": "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&q=80&w=300",
+        "m3": "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&q=80&w=300",
+        "m4": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300",
+        "m5": "https://images.unsplash.com/photo-1541544741938-0af808871cc0?auto=format&fit=crop&q=80&w=300",
+        "m6": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300",
+        "m7": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300",
+        "m8": "https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&q=80&w=300",
+        "m9": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&q=80&w=300",
+        "m10": "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&q=80&w=300",
+        "m11": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&q=80&w=300",
+        "m12": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=300",
+        "m13": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=300",
+        "m14": "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&q=80&w=300",
+        "m15": "https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80&w=300",
+        "m16": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&q=80&w=300",
+        "m17": "https://images.unsplash.com/photo-1560512823-829485b8bf24?auto=format&fit=crop&q=80&w=300",
+        "m18": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&q=80&w=300",
+        "m19": "https://images.unsplash.com/photo-1586040140378-b5634cb4c8fc?auto=format&fit=crop&q=80&w=300",
+        "m20": "https://images.unsplash.com/photo-1470324161839-ce2bb6fa6bc3?auto=format&fit=crop&q=80&w=300",
+    }
+
     if db.query(models.MenuItem).count() == 0:
         initial_menu = [
-            # Starters (5 items)
-            models.MenuItem(id="m1", name="Heirloom Burrata", price=15.00, description="Vine-ripe tomatoes, basil pesto, aged balsamic.", category="Starters", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&q=80&w=300", badge="Chef Special", calories=320),
-            models.MenuItem(id="m2", name="Crispy Calamari", price=16.00, description="With wild garlic aioli, charred lemon.", category="Starters", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&q=80&w=300", calories=410),
-            models.MenuItem(id="m3", name="Truffle Parmesan Fries", price=9.00, description="Hand-cut potatoes, white truffle oil, parmesan.", category="Starters", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&q=80&w=300", badge="Best Seller", calories=280),
-            models.MenuItem(id="m4", name="Garlic Butter Prawns", price=18.00, description="Sautéed in white wine, garlic, and fresh herbs.", category="Starters", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1559737607-357893888714?auto=format&fit=crop&q=80&w=300", calories=340),
-            models.MenuItem(id="m5", name="Stuffed Mushrooms", price=12.00, description="With spinach, garlic, and cream cheese filling.", category="Starters", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&q=80&w=300", calories=210),
+            models.MenuItem(id="m1", name="Heirloom Burrata", price=15.00, description="Vine-ripe tomatoes, basil pesto, aged balsamic.", category="Starters", available=True, type="VEG", imageUrl=working_urls_map["m1"], badge="Chef Special", calories=320),
+            models.MenuItem(id="m2", name="Crispy Calamari", price=16.00, description="With wild garlic aioli, charred lemon.", category="Starters", available=True, type="NON-VEG", imageUrl=working_urls_map["m2"], calories=410),
+            models.MenuItem(id="m3", name="Truffle Parmesan Fries", price=9.00, description="Hand-cut potatoes, white truffle oil, parmesan.", category="Starters", available=True, type="VEG", imageUrl=working_urls_map["m3"], badge="Best Seller", calories=280),
+            models.MenuItem(id="m4", name="Garlic Butter Prawns", price=18.00, description="Sautéed in white wine, garlic, and fresh herbs.", category="Starters", available=True, type="NON-VEG", imageUrl=working_urls_map["m4"], calories=340),
+            models.MenuItem(id="m5", name="Stuffed Mushrooms", price=12.00, description="With spinach, garlic, and cream cheese filling.", category="Starters", available=True, type="VEG", imageUrl=working_urls_map["m5"], calories=210),
             
-            # Mains (6 items)
-            models.MenuItem(id="m6", name="Wagyu Truffle Burger", price=24.00, description="A5 Wagyu beef, black truffle paste, gruyère cheese.", category="Main Course", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300", badge="Best Seller", calories=850),
-            models.MenuItem(id="m7", name="Atlantic Salmon Steak", price=29.00, description="Pan-seared wild salmon, avocado crema, dill, asparagus.", category="Main Course", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300", badge="Chef Special", calories=460),
-            models.MenuItem(id="m8", name="Forest Mushroom Risotto", price=19.00, description="Arborio rice, wild porcini mushrooms, parmesan.", category="Main Course", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&q=80&w=300", calories=550),
-            models.MenuItem(id="m9", name="Ribeye Steak", price=38.00, description="USDA Prime ribeye, rosemary butter, roasted garlic.", category="Main Course", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&q=80&w=300", calories=920),
-            models.MenuItem(id="m10", name="Chicken Parmigiana", price=23.00, description="Crispy chicken breast, marinara, mozzarella, spaghetti.", category="Main Course", available=True, type="NON-VEG", imageUrl="https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&q=80&w=300", calories=680),
-            models.MenuItem(id="m11", name="Spinach Ricotta Ravioli", price=21.00, description="House-made ravioli, sage brown butter sauce.", category="Main Course", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&q=80&w=300", calories=490),
+            models.MenuItem(id="m6", name="Wagyu Truffle Burger", price=24.00, description="A5 Wagyu beef, black truffle paste, gruyère cheese.", category="Main Course", available=True, type="NON-VEG", imageUrl=working_urls_map["m6"], badge="Best Seller", calories=850),
+            models.MenuItem(id="m7", name="Atlantic Salmon Steak", price=29.00, description="Pan-seared wild salmon, avocado crema, dill, asparagus.", category="Main Course", available=True, type="NON-VEG", imageUrl=working_urls_map["m7"], badge="Chef Special", calories=460),
+            models.MenuItem(id="m8", name="Forest Mushroom Risotto", price=19.00, description="Arborio rice, wild porcini mushrooms, parmesan.", category="Main Course", available=True, type="VEG", imageUrl=working_urls_map["m8"], calories=550),
+            models.MenuItem(id="m9", name="Ribeye Steak", price=38.00, description="USDA Prime ribeye, rosemary butter, roasted garlic.", category="Main Course", available=True, type="NON-VEG", imageUrl=working_urls_map["m9"], calories=920),
+            models.MenuItem(id="m10", name="Chicken Parmigiana", price=23.00, description="Crispy chicken breast, marinara, mozzarella, spaghetti.", category="Main Course", available=True, type="NON-VEG", imageUrl=working_urls_map["m10"], calories=680),
+            models.MenuItem(id="m11", name="Spinach Ricotta Ravioli", price=21.00, description="House-made ravioli, sage brown butter sauce.", category="Main Course", available=True, type="VEG", imageUrl=working_urls_map["m11"], calories=490),
 
-            # Beverages (6 items)
-            models.MenuItem(id="m12", name="Ocean Spray Cocktail", price=14.00, description="Artisanal gin, blue curaçao, fresh lime juice, tonic.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=300", calories=180),
-            models.MenuItem(id="m13", name="Smoked Old Fashioned", price=16.00, description="Premium bourbon, orange peel, angostura bitters, smoke.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=300", badge="Best Seller", calories=160),
-            models.MenuItem(id="m14", name="Lavender Lemonade", price=6.00, description="Squeezed lemons, lavender syrup, sparkling water.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=300", calories=120),
-            models.MenuItem(id="m15", name="Mango Passionfruit Smoothie", price=7.50, description="Fresh mango pulp, passionfruit juice, greek yogurt.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&q=80&w=300", calories=240),
-            models.MenuItem(id="m16", name="Iced Matcha Latte", price=6.50, description="Ceremonial grade matcha, oat milk, vanilla syrup.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=300", calories=140),
-            models.MenuItem(id="m17", name="Sparkling Water", price=4.00, description="Chilled sparkling mineral water with fresh lime.", category="Beverages", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1608885898957-a599fb15ec36?auto=format&fit=crop&q=80&w=300", calories=0),
+            models.MenuItem(id="m12", name="Ocean Spray Cocktail", price=14.00, description="Artisanal gin, blue curaçao, fresh lime juice, tonic.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m12"], calories=180),
+            models.MenuItem(id="m13", name="Smoked Old Fashioned", price=16.00, description="Premium bourbon, orange peel, angostura bitters, smoke.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m13"], badge="Best Seller", calories=160),
+            models.MenuItem(id="m14", name="Lavender Lemonade", price=6.00, description="Squeezed lemons, lavender syrup, sparkling water.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m14"], calories=120),
+            models.MenuItem(id="m15", name="Mango Passionfruit Smoothie", price=7.50, description="Fresh mango pulp, passionfruit juice, greek yogurt.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m15"], calories=240),
+            models.MenuItem(id="m16", name="Iced Matcha Latte", price=6.50, description="Ceremonial grade matcha, oat milk, vanilla syrup.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m16"], calories=140),
+            models.MenuItem(id="m17", name="Sparkling Water", price=4.00, description="Chilled sparkling mineral water with fresh lime.", category="Beverages", available=True, type="VEG", imageUrl=working_urls_map["m17"], calories=0),
 
-            # Desserts (3 items)
-            models.MenuItem(id="m18", name="Matcha Lava Cake", price=12.00, description="Molten white chocolate matcha core, vanilla gelato.", category="Desserts", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?auto=format&fit=crop&q=80&w=300", calories=450),
-            models.MenuItem(id="m19", name="Signature Tiramisu", price=11.00, description="Mascarpone cream, ladyfingers, cocoa dusting.", category="Desserts", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&q=80&w=300", badge="Chef Special", calories=480),
-            models.MenuItem(id="m20", name="Vanilla Crème Brûlée", price=10.50, description="Rich custard base topped with caramelized sugar.", category="Desserts", available=True, type="VEG", imageUrl="https://images.unsplash.com/photo-1516685018646-549198525c1b?auto=format&fit=crop&q=80&w=300", calories=390),
+            models.MenuItem(id="m18", name="Matcha Lava Cake", price=12.00, description="Molten white chocolate matcha core, vanilla gelato.", category="Desserts", available=True, type="VEG", imageUrl=working_urls_map["m18"], calories=450),
+            models.MenuItem(id="m19", name="Signature Tiramisu", price=11.00, description="Mascarpone cream, ladyfingers, cocoa dusting.", category="Desserts", available=True, type="VEG", imageUrl=working_urls_map["m19"], badge="Chef Special", calories=480),
+            models.MenuItem(id="m20", name="Vanilla Crème Brûlée", price=10.50, description="Rich custard base topped with caramelized sugar.", category="Desserts", available=True, type="VEG", imageUrl=working_urls_map["m20"], calories=390),
         ]
         db.add_all(initial_menu)
+        db.commit()
+    else:
+        # Repair any existing seeded items (m1-m20) that have deprecated/broken Unsplash photo links
+        for item_id, new_url in working_urls_map.items():
+            existing_item = db.query(models.MenuItem).filter(models.MenuItem.id == item_id).first()
+            if existing_item and "unsplash.com" in (existing_item.imageUrl or ""):
+                # If it's a known broken unsplash ID or old seed, upgrade to the verified working link
+                old_url = existing_item.imageUrl or ""
+                broken_ids = ["photo-1608885898957", "photo-1599487488170", "photo-1573080496219", "photo-1559737607", "photo-1534422298391", "photo-1513558161293", "photo-1553530666", "photo-1536256263959", "photo-1563729784474", "photo-1571877227200", "photo-1516685018646"]
+                if any(b_id in old_url for b_id in broken_ids) or old_url != new_url:
+                    existing_item.imageUrl = new_url
         db.commit()
 
     # Seed 10 Tables: T01 to T10

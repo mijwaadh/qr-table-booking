@@ -193,6 +193,9 @@ export const Menu: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       alt={item.name} 
                       src={item.imageUrl} 
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300';
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-outline">
@@ -324,7 +327,14 @@ export const Menu: React.FC = () => {
                 className="w-full h-40 rounded-xl overflow-hidden relative border-2 border-outline-variant cursor-pointer group bg-surface-container-low"
                 title="Click to change photo"
               >
-                <img src={imageUrl} alt="Food preview" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img 
+                  src={imageUrl} 
+                  alt="Food preview" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300';
+                  }}
+                />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-semibold text-xs gap-1.5">
                   <Upload className="w-4 h-4" />
                   <span>Click to change photo</span>
