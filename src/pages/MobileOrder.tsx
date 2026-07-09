@@ -33,13 +33,14 @@ export const MobileOrder: React.FC = () => {
 
   const rawTableId = searchParams.get('tableId') || searchParams.get('table') || 'T04';
   const normalizeTableId = (id: string): string => {
-    const clean = id.trim().toUpperCase();
-    const match = clean.match(/^T(\d+)$/);
+    let clean = id.trim().toUpperCase();
+    clean = clean.replace(/^(TABLE|TBL|T[\s_-]*)/, '').trim();
+    const match = clean.match(/^(\d+)$/);
     if (match) {
       const num = parseInt(match[1], 10);
       return `T${num.toString().padStart(2, '0')}`;
     }
-    return clean;
+    return clean.startsWith('T') ? clean : `T${clean}`;
   };
   const tableId = normalizeTableId(rawTableId);
   const [searchTerm, setSearchTerm] = useState('');

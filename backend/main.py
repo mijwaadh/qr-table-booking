@@ -334,6 +334,17 @@ async def delete_menu_item(item_id: str, db: Session = Depends(get_db)):
     await manager.broadcast({"type": "REFRESH"})
     return {"message": "Item deleted successfully"}
 
+def normalize_tid(tid: str) -> str:
+    clean = str(tid or "T04").strip().upper()
+    for prefix in ["TABLE", "TBL", "T-", "T_"]:
+        if clean.startswith(prefix):
+            clean = clean[len(prefix):].strip()
+    if clean.startswith("T"):
+        clean = clean[1:].strip()
+    if clean.isdigit():
+        return f"T{int(clean):02d}"
+    return f"T{clean}" if not clean.startswith("T") else clean
+
 # --- ORDERS APIS ---
 @app.get("/api/orders", response_model=List[schemas.OrderSchema])
 def get_orders(db: Session = Depends(get_db)):
@@ -341,22 +352,15 @@ def get_orders(db: Session = Depends(get_db)):
 
 @app.post("/api/orders", response_model=schemas.OrderSchema)
 async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
-    # Normalize tableId (e.g. 't04' -> 'T04', '4' -> 'T04', 'Table 4' -> 'T04')
-    clean_tid = (payload.tableId or "T04").strip().upper()
-    if clean_tid.startswith("TABLE"):
-        clean_tid = clean_tid.replace("TABLE", "").strip()
-    if clean_tid.isdigit():
-        clean_tid = f"T{int(clean_tid):02d}"
-    if not clean_tid.startswith("T"):
-        clean_tid = f"T{clean_tid}"
+    clean_tid = normalize_tid(payload.tableId)
         
     db_table = db.query(models.Table).filter(models.Table.id == clean_tid).first()
     if not db_table:
-        db_table = db.query(models.Table).filter(models.Table.id == "T04").first()
-        if not db_table:
-            db_table = models.Table(id=clean_tid, name=f"Table {clean_tid}", seats=4, status="AVAILABLE")
-            db.add(db_table)
-            db.commit()
+        table_num = clean_tid[1:].lstrip("0") or clean_tid
+        db_table = models.Table(id=clean_tid, name=f"Table {table_num}", seats=4, status="AVAILABLE")
+        db.add(db_table)
+        db.commit()
+        db.refresh(db_table)
     payload.tableId = db_table.id
         
     # Calculate amount
@@ -460,13 +464,15 @@ async def toggle_order_item_completion(order_id: str, item_index: int, db: Sessi
 # --- PAYMENTS & BILLING APIS ---
 @app.post("/api/payments/settle", response_model=schemas.PaymentSchema)
 async def settle_bill(payload: schemas.PaymentCreate, db: Session = Depends(get_db)):
-    db_table = db.query(models.Table).filter(models.Table.id == payload.tableId).first()
+    clean_tid = normalize_tid(payload.tableId)
+    payload.tableId = clean_tid
+    db_table = db.query(models.Table).filter(models.Table.id == clean_tid).first()
     if not db_table:
         raise HTTPException(status_code=404, detail="Table not found")
         
     # Get active orders of this table to mark completed
     table_orders = db.query(models.Order).filter(
-        models.Order.tableId == payload.tableId,
+        models.Order.tableId == clean_tid,
         models.Order.status != "COMPLETED"
     ).all()
     
