@@ -35,9 +35,36 @@ def ensure_database_exists():
     except Exception as e:
         print(f"[Database] Notice during local auto-creation check: {e}")
 
-ensure_database_exists()
+def resolve_working_db_url(url_str: str) -> str:
+    if "sqlite" in url_str:
+        return url_str
+    try:
+        conn = psycopg.connect(url_str, connect_timeout=10)
+        conn.close()
+        print("[Database] Successfully verified connection using provided DATABASE_URL.")
+        return url_str
+    except Exception as e:
+        err_msg = str(e)
+        print(f"[Database] Connection test with provided URL failed: {err_msg}")
+        if ('database "postgres" does not exist' in err_msg or "does not exist" in err_msg) and "/postgres" in url_str:
+            try:
+                parsed = urlparse.urlparse(url_str)
+                user = parsed.username or ""
+                if "." in user:
+                    project_id = user.split(".")[-1]
+                    if project_id and project_id != "postgres":
+                        alt_url = url_str.rsplit("/postgres", 1)[0] + f"/{project_id}"
+                        print(f"[Database] Retrying connection with project ID database name: '{project_id}'...")
+                        conn2 = psycopg.connect(alt_url, connect_timeout=10)
+                        conn2.close()
+                        print(f"[Database] Success! Using database name '{project_id}'.")
+                        return alt_url
+            except Exception as e2:
+                print(f"[Database] Fallback database check failed: {e2}")
+        return url_str
 
-engine_url = DATABASE_URL
+working_url = resolve_working_db_url(DATABASE_URL)
+engine_url = working_url
 if engine_url.startswith("postgresql://"):
     engine_url = engine_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
