@@ -42,10 +42,17 @@ engine_url = DATABASE_URL
 if engine_url.startswith("postgresql://"):
     engine_url = engine_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
+connect_args = {}
+if "sqlite" not in engine_url:
+    connect_args["connect_timeout"] = 15
+    # Disable server-side prepared statements if using PgBouncer / Supabase Transaction Pooler (port 6543)
+    if ":6543" in engine_url or "pooler.supabase.com" in engine_url:
+        connect_args["prepare_threshold"] = None
+
 engine = create_engine(
     engine_url,
     pool_pre_ping=True,
-    connect_args={"connect_timeout": 15} if "sqlite" not in engine_url else {}
+    connect_args=connect_args
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
