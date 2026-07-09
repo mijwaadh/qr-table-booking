@@ -5,7 +5,7 @@ interface RestaurantContextType {
   tables: Table[];
   orders: Order[];
   menuItems: MenuItem[];
-  addOrder: (tableId: string, items: { menuItem: MenuItem; quantity: number; notes?: string }[]) => void;
+  addOrder: (tableId: string, items: { menuItem: MenuItem; quantity: number; notes?: string }[]) => Promise<boolean>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   toggleItemCompleteInOrder: (orderId: string, itemIndex: number) => void;
   setTableStatus: (tableId: string, status: Table['status'], amount?: number) => void;
@@ -100,7 +100,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
   }, []);
 
-  const addOrder = async (tableId: string, items: { menuItem: MenuItem; quantity: number; notes?: string }[]) => {
+  const addOrder = async (tableId: string, items: { menuItem: MenuItem; quantity: number; notes?: string }[]): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
@@ -116,9 +116,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        return true;
+      } else {
+        const err = await response.json().catch(() => ({ detail: response.statusText }));
+        alert(`Could not place order: ${err.detail || 'Server rejected order.'}`);
+        return false;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(`Network error placing order: ${e.message || 'Please check your internet connection.'}`);
+      return false;
     }
   };
 

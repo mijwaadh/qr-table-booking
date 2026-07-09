@@ -341,9 +341,23 @@ def get_orders(db: Session = Depends(get_db)):
 
 @app.post("/api/orders", response_model=schemas.OrderSchema)
 async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
-    db_table = db.query(models.Table).filter(models.Table.id == payload.tableId).first()
+    # Normalize tableId (e.g. 't04' -> 'T04', '4' -> 'T04', 'Table 4' -> 'T04')
+    clean_tid = (payload.tableId or "T04").strip().upper()
+    if clean_tid.startswith("TABLE"):
+        clean_tid = clean_tid.replace("TABLE", "").strip()
+    if clean_tid.isdigit():
+        clean_tid = f"T{int(clean_tid):02d}"
+    if not clean_tid.startswith("T"):
+        clean_tid = f"T{clean_tid}"
+        
+    db_table = db.query(models.Table).filter(models.Table.id == clean_tid).first()
     if not db_table:
-        raise HTTPException(status_code=404, detail="Table not found")
+        db_table = db.query(models.Table).filter(models.Table.id == "T04").first()
+        if not db_table:
+            db_table = models.Table(id=clean_tid, name=f"Table {clean_tid}", seats=4, status="AVAILABLE")
+            db.add(db_table)
+            db.commit()
+    payload.tableId = db_table.id
         
     # Calculate amount
     total_amount = 0.0

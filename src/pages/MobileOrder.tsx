@@ -52,6 +52,7 @@ export const MobileOrder: React.FC = () => {
   const [activeModal, setActiveModal] = useState<'NONE' | 'CHECKOUT' | 'TRACKING' | 'BILLING'>('NONE');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'Online' | 'Cash'>('Online');
 
   // Trigger temporary toast
@@ -98,17 +99,24 @@ export const MobileOrder: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handlePlaceOrder = () => {
-    if (cart.length === 0) return;
+  const handlePlaceOrder = async () => {
+    if (cart.length === 0 || isPlacingOrder) return;
     
-    addOrder(tableId, cart.map(i => ({
-      menuItem: i.menuItem,
-      quantity: i.quantity
-    })));
+    setIsPlacingOrder(true);
+    try {
+      const success = await addOrder(tableId, cart.map(i => ({
+        menuItem: i.menuItem,
+        quantity: i.quantity
+      })));
 
-    setCart([]); // Clear cart
-    setActiveModal('TRACKING'); // Open order tracking
-    triggerToast('Order placed successfully! Preparing now.');
+      if (success) {
+        setCart([]); // Clear cart
+        setActiveModal('TRACKING'); // Open order tracking ONLY after database save and refresh Data complete
+        triggerToast('Order placed successfully! Sent to kitchen.');
+      }
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const handleCheckout = () => {
@@ -413,9 +421,19 @@ export const MobileOrder: React.FC = () => {
                   </div>
                   <button 
                     onClick={handlePlaceOrder}
-                    className="w-full bg-primary text-on-primary py-lg rounded-2xl mt-xl font-headline-sm hover:shadow-xl active:scale-95 transition-all font-bold text-sm text-white"
+                    disabled={isPlacingOrder}
+                    className={`w-full bg-primary text-on-primary py-lg rounded-2xl mt-xl font-headline-sm hover:shadow-xl active:scale-95 transition-all font-bold text-sm text-white flex items-center justify-center gap-2 ${
+                      isPlacingOrder ? 'opacity-75 cursor-not-allowed' : ''
+                    }`}
                   >
-                    Place Order
+                    {isPlacingOrder ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Sending to Kitchen...</span>
+                      </>
+                    ) : (
+                      <span>Place Order</span>
+                    )}
                   </button>
                 </div>
               </div>
