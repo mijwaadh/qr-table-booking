@@ -153,7 +153,9 @@ from sqlalchemy.exc import OperationalError
 @app.exception_handler(OperationalError)
 async def db_connection_error_handler(request, exc: OperationalError):
     err_str = str(exc)
-    if "Network is unreachable" in err_str:
+    if 'database "postgres" does not exist' in err_str or "does not exist" in err_str:
+        detail_msg = "Database 'postgres' not found via Supabase Transaction Pooler (port 6543). Please switch port 6543 to port 5432 (Session pooler) in your Render DATABASE_URL: postgresql://user:pass@aws-0-xxx.pooler.supabase.com:5432/postgres"
+    elif "Network is unreachable" in err_str:
         detail_msg = "Could not reach database server. If deploying on Render with Supabase, ensure DATABASE_URL uses the IPv4 Session/Transaction Pooler URL (*.pooler.supabase.com) rather than the direct IPv6 URL (db.supabase.co)."
     elif "server closed the connection" in err_str or "connection reset" in err_str or "buffer" in err_str or "terminating connection" in err_str:
         detail_msg = "Database connection closed during query. If saving a large image or payload, please ensure it is compressed or under 500KB."
