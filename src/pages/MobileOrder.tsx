@@ -320,10 +320,10 @@ export const MobileOrder: React.FC = () => {
 
         {/* Floating Cart Bar */}
         {cartItemCount > 0 && activeModal === 'NONE' && (
-          <div className="absolute bottom-20 left-md right-md z-50 animate-slide-up">
+          <div className="fixed bottom-16 left-0 right-0 max-w-md mx-auto px-4 z-50 animate-slide-up pointer-events-none">
             <button 
               onClick={() => setActiveModal('CHECKOUT')}
-              className="w-full bg-primary text-on-primary p-lg rounded-2xl shadow-2xl flex justify-between items-center transform transition-transform active:scale-95"
+              className="w-full bg-primary text-on-primary p-lg rounded-2xl shadow-2xl flex justify-between items-center transform transition-transform active:scale-95 pointer-events-auto border border-primary-container/30"
             >
               <div className="flex items-center gap-md">
                 <div className="relative">
@@ -343,7 +343,7 @@ export const MobileOrder: React.FC = () => {
         )}
 
         {/* Bottom Navigation */}
-        <nav className="absolute bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 pb-safe bg-surface-container-lowest shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 rounded-t-xl shrink-0">
+        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto w-full flex justify-around items-center px-4 py-2 pb-safe bg-surface-container-lowest shadow-[0_-4px_12px_-1px_rgba(0,0,0,0.15)] z-50 rounded-t-2xl shrink-0 border-t border-outline-variant/30">
           <button 
             onClick={() => setActiveModal('NONE')}
             className={`flex flex-col items-center justify-center p-2 transition-transform scale-95 active:scale-90 ${
@@ -377,14 +377,14 @@ export const MobileOrder: React.FC = () => {
         {activeModal !== 'NONE' && (
           <div 
             onClick={() => { if (!isProcessingPayment) setActiveModal('NONE'); }}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-end justify-center"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-end justify-center"
           >
             
             {/* Checkout Drawer */}
             {activeModal === 'CHECKOUT' && (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="w-full bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up flex flex-col justify-between"
+                className="w-full max-w-md bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up flex flex-col justify-between"
               >
                 <div>
                   <div className="w-12 h-1 bg-outline-variant rounded-full mx-auto mb-lg"></div>
@@ -444,7 +444,7 @@ export const MobileOrder: React.FC = () => {
             {activeModal === 'TRACKING' && (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="w-full bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up"
+                className="w-full max-w-md bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up"
               >
                 <div className="w-12 h-1 bg-outline-variant rounded-full mx-auto mb-lg"></div>
                 <div className="flex justify-between items-center mb-xl">
@@ -524,7 +524,7 @@ export const MobileOrder: React.FC = () => {
             {activeModal === 'BILLING' && (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="w-full bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up"
+                className="w-full max-w-md bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up"
               >
                 <div className="w-12 h-1 bg-outline-variant rounded-full mx-auto mb-lg"></div>
                 <div className="flex justify-between items-center mb-xl">
