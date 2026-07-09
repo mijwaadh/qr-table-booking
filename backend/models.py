@@ -1,6 +1,10 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from .database import Base
+from database import Base
 
 class Restaurant(Base):
     __tablename__ = "restaurants"

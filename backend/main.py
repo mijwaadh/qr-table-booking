@@ -4,10 +4,14 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import datetime
 import os
+import sys
 import random
 
-from .database import engine, get_db, Base
-from . import models, schemas
+# Ensure the directory containing this file is on sys.path so absolute module imports work anywhere
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from database import engine, get_db, Base
+import models, schemas
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
