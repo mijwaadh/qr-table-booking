@@ -42,7 +42,11 @@ engine_url = DATABASE_URL
 if engine_url.startswith("postgresql://"):
     engine_url = engine_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
-engine = create_engine(engine_url)
+engine = create_engine(
+    engine_url,
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 15} if "sqlite" not in engine_url else {}
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

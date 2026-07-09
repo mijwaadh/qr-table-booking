@@ -13,8 +13,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from database import engine, get_db, Base
 import models, schemas
 
-# Initialize database tables
-Base.metadata.create_all(bind=engine)
 
 class ConnectionManager:
     def __init__(self):
@@ -146,10 +144,50 @@ def seed_initial_data(db: Session):
         db.add_all([item1, item2])
         db.commit()
 
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
+
+@app.exception_handler(OperationalError)
+async def db_connection_error_handler(request, exc: OperationalError):
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "error": "Database connection error.",
+            "detail": "Could not reach database server. If deploying on Render with Supabase, ensure DATABASE_URL uses the IPv4 Session/Transaction Pooler URL (*.pooler.supabase.com) rather than the direct IPv6 URL (db.supabase.co)."
+        }
+    )
+
 @app.on_event("startup")
 def startup_event():
-    db = next(get_db())
-    seed_initial_data(db)
+    import time
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[Startup] Connecting to database and initializing schema (Attempt {attempt}/{max_retries})...")
+            Base.metadata.create_all(bind=engine)
+            db = next(get_db())
+            seed_initial_data(db)
+            print("[Startup] Database schema and initial data loaded successfully.")
+            break
+        except Exception as e:
+            err_msg = str(e)
+            print(f"[Startup] Database setup attempt {attempt} failed: {err_msg}")
+            if attempt == max_retries:
+                print("=" * 80)
+                print("CRITICAL DATABASE CONNECTION WARNING ON STARTUP")
+                print("=" * 80)
+                print(f"Error details: {err_msg}")
+                if "Network is unreachable" in err_msg or "OperationalError" in err_msg or "psycopg" in err_msg:
+                    print("\n[TROUBLESHOOTING GUIDE FOR RENDER & SUPABASE / POSTGRESQL]:")
+                    print("1. If using Supabase, you MUST use the IPv4 Connection Pooler string!")
+                    print("   - Direct connection strings (db.<project-ref>.supabase.co) use IPv6 exclusively.")
+                    print("   - Render Web Services DO NOT support outbound IPv6 TCP connections (raises 'Network is unreachable').")
+                    print("   - FIX: In your Supabase Dashboard -> Project Settings -> Database -> Connection string, select 'Transaction pooler' or 'Session pooler' (e.g. aws-0-xxx.pooler.supabase.com:6543) and update your Render DATABASE_URL environment variable.")
+                    print("2. Verify that your database server is running and accepting TCP/IP connections.")
+                    print("3. Ensure any special characters (@, #, $, %) in your DB password inside DATABASE_URL are URL-encoded.")
+                print("=" * 80)
+            else:
+                time.sleep(3)
 
 # --- TABLES APIS ---
 @app.get("/api/tables", response_model=List[schemas.TableSchema])
