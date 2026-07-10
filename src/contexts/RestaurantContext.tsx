@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Table, Order, MenuItem } from '../types';
+import { calculateElapsedMinutes } from '../utils/time';
 
 interface RestaurantContextType {
   tables: Table[];
@@ -37,16 +38,24 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ]);
       
       if (resTables.ok) {
-        const data = await resTables.json();
-        setTables(data);
+        const data: Table[] = await resTables.json();
+        setTables(data.map(t => ({
+          ...t,
+          elapsedMinutes: t.seatedTime ? calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0) : t.elapsedMinutes
+        })));
       }
       if (resMenu.ok) {
         const data = await resMenu.json();
         setMenuItems(data);
       }
       if (resOrders.ok) {
-        const data = await resOrders.json();
-        setOrders(data);
+        const data: Order[] = await resOrders.json();
+        setOrders(data.map(o => ({
+          ...o,
+          elapsedMinutes: o.status === 'COMPLETED' || o.status === 'CANCELLED'
+            ? o.elapsedMinutes
+            : calculateElapsedMinutes(o.time, o.elapsedMinutes)
+        })));
       }
     } catch (e) {
       console.error("Failed to fetch data from backend:", e);
@@ -55,6 +64,20 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     refreshData();
+
+    // Live ticker: recalculate elapsed timing every 10 seconds
+    const timer = setInterval(() => {
+      setOrders(prev => prev.map(o => {
+        if (o.status === 'COMPLETED' || o.status === 'CANCELLED') return o;
+        const calc = calculateElapsedMinutes(o.time, o.elapsedMinutes);
+        return calc !== o.elapsedMinutes ? { ...o, elapsedMinutes: calc } : o;
+      }));
+      setTables(prev => prev.map(t => {
+        if (t.status !== 'OCCUPIED' && t.status !== 'PAYMENT_PENDING' || !t.seatedTime) return t;
+        const calc = calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0);
+        return calc !== t.elapsedMinutes ? { ...t, elapsedMinutes: calc } : t;
+      }));
+    }, 10000);
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: number;
@@ -92,6 +115,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     connectWS();
 
     return () => {
+      clearInterval(timer);
       if (ws) {
         ws.onclose = null;
         ws.close();
@@ -130,6 +154,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
         method: 'PUT',
@@ -137,27 +162,35 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         body: JSON.stringify({ status })
       });
       if (response.ok) {
-        await refreshData();
+        refreshData();
       }
     } catch (e) {
       console.error(e);
+      refreshData();
     }
   };
 
   const toggleItemCompleteInOrder = async (orderId: string, itemIndex: number) => {
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+      const updatedItems = o.items.map((item, idx) => idx === itemIndex ? { ...item, completed: !item.completed } : item);
+      return { ...o, items: updatedItems };
+    }));
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${orderId}/items/${itemIndex}/toggle`, {
         method: 'PUT'
       });
       if (response.ok) {
-        await refreshData();
+        refreshData();
       }
     } catch (e) {
       console.error(e);
+      refreshData();
     }
   };
 
   const setTableStatus = async (tableId: string, status: Table['status'], amount?: number) => {
+    setTables(prev => prev.map(t => t.id === tableId ? { ...t, status, amount: amount !== undefined ? amount : t.amount } : t));
     try {
       const response = await fetch(`${API_BASE_URL}/tables/${tableId}`, {
         method: 'PUT',
@@ -165,10 +198,11 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         body: JSON.stringify({ status, amount })
       });
       if (response.ok) {
-        await refreshData();
+        refreshData();
       }
     } catch (e) {
       console.error(e);
+      refreshData();
     }
   };
 

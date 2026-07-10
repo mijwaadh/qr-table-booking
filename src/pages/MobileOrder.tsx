@@ -10,6 +10,7 @@ import {
   Leaf, 
   Star, 
   Plus, 
+  Minus,
   ShoppingCart, 
   X, 
   UtensilsCrossed,
@@ -46,6 +47,27 @@ export const MobileOrder: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Starters' | 'Main Course' | 'Beverages' | 'Desserts'>('All');
   
+  // Customer QR Scan Registration State
+  const [customerName, setCustomerName] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
+      return saved ? JSON.parse(saved).name || '' : '';
+    } catch { return ''; }
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
+      return saved ? JSON.parse(saved).phone || '' : '';
+    } catch { return ''; }
+  });
+  const [showQRRegistrationModal, setShowQRRegistrationModal] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
+      return !saved;
+    } catch { return true; }
+  });
+  const [isRegisteringQR, setIsRegisteringQR] = useState(false);
+
   // Local Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -55,6 +77,42 @@ export const MobileOrder: React.FC = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'Online' | 'Cash'>('Online');
+
+  const handleSaveQRRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerName.trim() || !customerPhone.trim()) {
+      alert('Please enter both your Name and Phone Number to start ordering.');
+      return;
+    }
+    setIsRegisteringQR(true);
+    try {
+      // Save on database via API call
+      const res = await fetch('http://localhost:8000/api/customers/qr-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: customerName.trim(),
+          phone: customerPhone.trim(),
+          tableId: tableId
+        })
+      });
+      if (!res.ok) {
+        console.warn('Could not reach backend API for QR scan customer registration.');
+      }
+    } catch (err) {
+      console.warn('QR scan customer registration API error:', err);
+    } finally {
+      setIsRegisteringQR(false);
+      localStorage.setItem(`sf_qr_customer_${tableId}`, JSON.stringify({
+        name: customerName.trim(),
+        phone: customerPhone.trim(),
+        tableId: tableId,
+        scannedAt: new Date().toISOString()
+      }));
+      setShowQRRegistrationModal(false);
+      triggerToast(`Welcome to Table ${tableId.replace(/^T0?/, '')}, ${customerName}!`);
+    }
+  };
 
   // Trigger temporary toast
   const triggerToast = (msg: string) => {
@@ -77,6 +135,17 @@ export const MobileOrder: React.FC = () => {
       return [...prev, { menuItem: item, quantity: 1 }];
     });
     triggerToast(`Added ${item.name} to cart`);
+  };
+
+  const handleDecrementQuantity = (itemId: string) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.menuItem.id === itemId);
+      if (!existing) return prev;
+      if (existing.quantity > 1) {
+        return prev.map(i => i.menuItem.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
+      }
+      return prev.filter(i => i.menuItem.id !== itemId);
+    });
   };
 
   // Cart Calculations
@@ -111,6 +180,10 @@ export const MobileOrder: React.FC = () => {
       })));
 
       if (success) {
+        if (customerName.trim()) {
+          localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
+        }
+        setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
         setCart([]); // Clear cart
         setActiveModal('TRACKING'); // Open order tracking ONLY after database save and refresh Data complete
         triggerToast('Order placed successfully! Sent to kitchen.');
@@ -139,6 +212,9 @@ export const MobileOrder: React.FC = () => {
       }, 2000);
     } else {
       // Cash payment
+      if (customerName.trim()) {
+        localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
+      }
       setTableStatus(tableId, 'PAYMENT_PENDING', activeTableTotal);
       setActiveModal('NONE');
       triggerToast('Cashier notified! Please settle payment at the checkout counter.');
@@ -303,14 +379,41 @@ export const MobileOrder: React.FC = () => {
                       <span className="text-[10px] font-extrabold px-2.5 py-1 bg-outline-variant/30 text-on-surface-variant rounded-lg uppercase tracking-wider">
                         Sold Out
                       </span>
-                    ) : (
-                      <button 
-                        onClick={() => handleAddToCart(item)}
-                        className="w-8 h-8 bg-primary-container text-on-primary-container rounded-xl flex items-center justify-center hover:scale-95 transition-transform active:bg-primary active:text-on-primary"
-                      >
-                        <Plus className="w-4 h-4 text-primary group-active:text-white" />
-                      </button>
-                    )}
+                    ) : (() => {
+                      const cartItem = cart.find(i => i.menuItem.id === item.id);
+                      if (cartItem && cartItem.quantity > 0) {
+                        return (
+                          <div className="flex items-center gap-1.5 bg-primary text-on-primary rounded-xl px-1.5 py-1 shadow-sm transition-all animate-fade-in">
+                            <button 
+                              onClick={() => handleDecrementQuantity(item.id)}
+                              className="w-6 h-6 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors active:scale-90"
+                              title="Decrease quantity"
+                            >
+                              <Minus className="w-3.5 h-3.5 text-white" />
+                            </button>
+                            <span className="font-label-md text-xs font-bold px-1 min-w-[18px] text-center text-white">
+                              {cartItem.quantity}
+                            </span>
+                            <button 
+                              onClick={() => handleAddToCart(item)}
+                              className="w-6 h-6 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors active:scale-90"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-white" />
+                            </button>
+                          </div>
+                        );
+                      }
+                      return (
+                        <button 
+                          onClick={() => handleAddToCart(item)}
+                          className="w-8 h-8 bg-primary-container text-on-primary-container rounded-xl flex items-center justify-center hover:scale-95 transition-transform active:bg-primary active:text-on-primary shadow-sm"
+                          title="Add to cart"
+                        >
+                          <Plus className="w-4 h-4 text-primary group-active:text-white" />
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -394,12 +497,30 @@ export const MobileOrder: React.FC = () => {
                   </div>
                   <div className="space-y-md overflow-y-auto max-h-[300px] custom-scrollbar pr-1">
                     {cart.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center py-md border-b border-outline-variant/30 text-sm">
-                        <div className="flex items-center gap-md">
-                          <span className="w-8 h-8 flex items-center justify-center bg-surface-container rounded-lg font-bold text-xs">{item.quantity}x</span>
-                          <span className="font-body-md text-on-surface font-semibold">{item.menuItem.name}</span>
+                      <div key={item.menuItem.id || idx} className="flex justify-between items-center py-md border-b border-outline-variant/30 text-sm gap-2">
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1 bg-surface-container-high rounded-lg p-1 shrink-0 border border-outline-variant/20">
+                            <button
+                              onClick={() => handleDecrementQuantity(item.menuItem.id)}
+                              className="w-6 h-6 rounded bg-surface hover:bg-surface-container-lowest flex items-center justify-center text-on-surface transition-colors active:scale-90 shadow-2xs"
+                              title="Decrease quantity"
+                            >
+                              <Minus className="w-3 h-3 text-on-surface-variant" />
+                            </button>
+                            <span className="font-label-md text-xs font-bold px-1 min-w-[18px] text-center text-on-surface">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => handleAddToCart(item.menuItem)}
+                              className="w-6 h-6 rounded bg-surface hover:bg-surface-container-lowest flex items-center justify-center text-on-surface transition-colors active:scale-90 shadow-2xs"
+                              title="Increase quantity"
+                            >
+                              <Plus className="w-3 h-3 text-on-surface-variant" />
+                            </button>
+                          </div>
+                          <span className="font-body-md text-on-surface font-semibold truncate" title={item.menuItem.name}>{item.menuItem.name}</span>
                         </div>
-                        <span className="font-label-md text-sm font-bold">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                        <span className="font-label-md text-sm font-bold shrink-0 ml-2">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -625,6 +746,60 @@ export const MobileOrder: React.FC = () => {
             <div className="flex items-center gap-md px-lg py-3 rounded-full shadow-2xl bg-white border border-primary/20 text-primary">
               <CheckCircle2 className="w-4 h-4 fill-primary text-white shrink-0" />
               <span className="font-label-md text-xs font-bold whitespace-nowrap">{toastMessage}</span>
+            </div>
+          </div>
+        )}
+
+        {/* QR Scan Registration Modal */}
+        {showQRRegistrationModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fadeIn">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-5 border border-outline-variant/30 text-center relative overflow-hidden">
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                <UserCheck className="w-7 h-7" />
+              </div>
+              
+              <div>
+                <h3 className="text-xl font-extrabold text-on-surface">Welcome to Table {tableId.replace(/^T0?/, '')}!</h3>
+                <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                  Please enter your Name and Phone Number to start ordering directly to your table.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveQRRegistration} className="space-y-3.5 text-left">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Full Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. Rahul Sharma"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    required 
+                    placeholder="e.g. +91 98765 43210"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isRegisteringQR}
+                  className="w-full mt-2 bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  {isRegisteringQR ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Save & Continue Ordering</span>
+                </button>
+              </form>
             </div>
           </div>
         )}

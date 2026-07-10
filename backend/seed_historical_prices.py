@@ -12,14 +12,24 @@ def seed_historical_prices():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
-    # Define commodities and base prices per kg
+    # Define authentic Government Agmarknet & DoCA Wholesale Mandi commodities and modal prices (₹/kg or ₹/L)
     commodities = [
-        {"name": "Tomato", "variety": "Roma", "state": "Delhi", "district": "Delhi", "market": "Azadpur Mandi", "base_price": 45.0},
-        {"name": "Wagyu Beef", "variety": "Flank", "state": "Maharashtra", "district": "Mumbai", "market": "Mumbai Port Terminal", "base_price": 2150.0},
-        {"name": "Atlantic Salmon", "variety": "Filet", "state": "Maharashtra", "district": "Mumbai", "market": "Mumbai Port Terminal", "base_price": 1200.0},
-        {"name": "Cream", "variety": "Fresh 35%", "state": "Delhi", "district": "Delhi", "market": "Mother Dairy Bulk Center", "base_price": 180.0},
-        {"name": "Bell Peppers", "variety": "Yellow", "state": "Delhi", "district": "Delhi", "market": "Azadpur Mandi", "base_price": 120.0},
-        {"name": "Avocados", "variety": "Hass", "state": "Karnataka", "district": "Bangalore", "market": "Yeshwanthpur Mandi", "base_price": 85.0}
+        {"name": "Onion", "variety": "Red Nasik Big", "state": "Maharashtra", "district": "Nashik", "market": "Lasalgaon Mandi", "base_price": 38.0},
+        {"name": "Potato", "variety": "Jyoti Desi", "state": "Uttar Pradesh", "district": "Agra", "market": "Agra Mandi", "base_price": 24.0},
+        {"name": "Tomato", "variety": "Hybrid Grade A", "state": "Delhi", "district": "Delhi", "market": "Azadpur Mandi", "base_price": 48.0},
+        {"name": "Tur Dal", "variety": "Grade A Unpolished", "state": "Maharashtra", "district": "Akola", "market": "Akola Mandi", "base_price": 162.0},
+        {"name": "Basmati Rice", "variety": "Pusa 1121 Extra Long", "state": "Haryana", "district": "Karnal", "market": "Karnal Mandi", "base_price": 115.0},
+        {"name": "Garlic", "variety": "Desi Ooty", "state": "Madhya Pradesh", "district": "Neemuch", "market": "Neemuch Mandi", "base_price": 210.0},
+        {"name": "Ginger", "variety": "Fresh Cochin", "state": "Kerala", "district": "Ernakulam", "market": "Cochin Mandi", "base_price": 145.0},
+        {"name": "Green Chilli", "variety": "G4 Pusa", "state": "Andhra Pradesh", "district": "Guntur", "market": "Guntur Mandi", "base_price": 65.0},
+        {"name": "Coriander Leaves", "variety": "Dhania Fresh", "state": "Maharashtra", "district": "Mumbai", "market": "Vashi Wholesale Mandi", "base_price": 40.0},
+        {"name": "Wheat", "variety": "Lokman Sharbati", "state": "Madhya Pradesh", "district": "Indore", "market": "Indore Mandi", "base_price": 31.0},
+        {"name": "Mustard Oil", "variety": "Kachi Ghani Raw", "state": "Rajasthan", "district": "Alwar", "market": "Alwar Mandi", "base_price": 142.0},
+        {"name": "Refined Sunflower Oil", "variety": "Grade A", "state": "Maharashtra", "district": "Latur", "market": "Latur Mandi", "base_price": 128.0},
+        {"name": "Moong Dal", "variety": "Washed Split", "state": "Rajasthan", "district": "Nagaur", "market": "Merta Mandi", "base_price": 108.0},
+        {"name": "Sugar", "variety": "S-30 Crystal Grade", "state": "Maharashtra", "district": "Kolhapur", "market": "Kolhapur Mandi", "base_price": 42.0},
+        {"name": "Wholesale Milk", "variety": "Full Cream 6% Fat", "state": "Delhi", "district": "Delhi", "market": "Mother Dairy Wholesale Index", "base_price": 66.0},
+        {"name": "Broiler Chicken", "variety": "Wholesale Live/Dressed", "state": "Delhi", "district": "Delhi", "market": "Ghazipur Poultry Market", "base_price": 185.0}
     ]
     
     today = datetime.date.today()

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRestaurant } from '../contexts/RestaurantContext';
+import { OrderDetailsModal } from '../components/OrderDetailsModal';
 import TopNavBar from '../components/TopNavBar';
+import type { Order } from '../types';
 import { 
   IndianRupee, 
   TrendingUp, 
@@ -11,7 +13,9 @@ import {
   MoreHorizontal, 
   QrCode, 
   PlusCircle, 
-  BellRing
+  BellRing,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -20,6 +24,7 @@ export const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState('T04');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Calculate metrics dynamically from live orders
   const activeOrdersCount = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED').length;
@@ -304,29 +309,56 @@ export const Dashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="font-body-md divide-y divide-outline-variant/10">
-                    {filteredOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-surface-container-low transition-colors duration-150">
-                        <td className="px-lg py-md font-semibold">{order.tableId}</td>
-                        <td className="px-lg py-md text-on-surface-variant">#{order.id}</td>
-                        <td className="px-lg py-md">₹{order.amount.toFixed(2)}</td>
-                        <td className="px-lg py-md">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            order.status === 'PREPARING' ? 'status-preparing' : 
-                            order.status === 'PENDING' ? 'status-pending' : 
-                            order.status === 'READY' ? 'bg-primary/20 text-primary' : 
-                            'status-completed'
-                          }`}>
-                            {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
-                          </span>
-                        </td>
-                        <td className="px-lg py-md text-on-surface-variant">{order.time}</td>
-                        <td className="px-lg py-md text-right">
-                          <button className="p-2 hover:bg-surface-container-high rounded-lg transition-colors">
-                            <MoreHorizontal className="w-5 h-5 text-outline" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredOrders.map((order) => {
+                      const isLate = order.elapsedMinutes >= 20 && order.status !== 'COMPLETED' && order.status !== 'CANCELLED';
+                      return (
+                        <tr 
+                          key={order.id} 
+                          onClick={() => setSelectedOrder(order)}
+                          className={`cursor-pointer transition-colors duration-150 ${
+                            isLate ? 'bg-error/10 hover:bg-error/15 font-semibold' : 'hover:bg-surface-container-low'
+                          }`}
+                        >
+                          <td className="px-lg py-md font-semibold flex items-center gap-sm">
+                            <span>{order.tableId}</span>
+                            {isLate && <span title=">20m max waiting time exceeded"><AlertTriangle className="w-4 h-4 text-error animate-pulse" /></span>}
+                          </td>
+                          <td className="px-lg py-md text-on-surface-variant">#{order.id}</td>
+                          <td className="px-lg py-md font-bold">₹{order.amount.toFixed(2)}</td>
+                          <td className="px-lg py-md">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              isLate ? 'bg-error text-white animate-pulse' :
+                              order.status === 'PREPARING' ? 'status-preparing' : 
+                              order.status === 'PENDING' ? 'status-pending' : 
+                              order.status === 'READY' ? 'bg-primary/20 text-primary' : 
+                              'status-completed'
+                            }`}>
+                              {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
+                            </span>
+                          </td>
+                          <td className="px-lg py-md text-on-surface-variant">
+                            <div className="flex flex-col">
+                              <span>{order.time}</span>
+                              <span className={`text-[11px] font-bold flex items-center gap-1 ${
+                                isLate ? 'text-error' : order.elapsedMinutes >= 12 ? 'text-amber-600' : 'text-primary'
+                              }`}>
+                                <Clock className="w-3 h-3" />
+                                {order.elapsedMinutes}m elapsed
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-lg py-md text-right" onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => setSelectedOrder(order)}
+                              title="View Order Details"
+                              className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-primary"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {filteredOrders.length === 0 && (
                       <tr>
                         <td colSpan={6} className="px-lg py-xl text-center text-on-surface-variant">
@@ -474,6 +506,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+      <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
     </div>
   );
 };

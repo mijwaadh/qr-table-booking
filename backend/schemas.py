@@ -104,3 +104,18 @@ class DashboardStatsSchema(BaseModel):
     pendingOrdersCount: int
     revenueChangePercent: float
     ordersChangePercent: float
+
+# Customer QR Scan schema
+class CustomerCreate(BaseModel):
+    name: str
+    phone: str
+    tableId: Optional[str] = None
+
+class CustomerSchema(BaseModel):
+    id: int
+    name: str
+    phone: str
+    tableId: Optional[str] = None
+    scannedAt: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)

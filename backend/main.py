@@ -334,6 +334,24 @@ async def update_table_status(table_id: str, payload: Dict[str, Any], db: Sessio
     await manager.broadcast({"type": "REFRESH"})
     return db_table
 
+# --- CUSTOMER QR SCAN APIS ---
+@app.post("/api/customers/qr-scan", response_model=schemas.CustomerSchema)
+async def register_qr_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
+    db_cust = models.Customer(
+        name=customer.name,
+        phone=customer.phone,
+        tableId=customer.tableId
+    )
+    db.add(db_cust)
+    db.commit()
+    db.refresh(db_cust)
+    await manager.broadcast({"type": "REFRESH"})
+    return db_cust
+
+@app.get("/api/customers", response_model=List[schemas.CustomerSchema])
+def get_customers(db: Session = Depends(get_db)):
+    return db.query(models.Customer).order_by(models.Customer.scannedAt.desc()).all()
+
 # --- MENU APIS ---
 @app.get("/api/menu", response_model=List[schemas.MenuItemSchema])
 def get_menu(db: Session = Depends(get_db)):

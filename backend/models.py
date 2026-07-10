@@ -115,3 +115,12 @@ class MarketPrediction(Base):
     horizon_days = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
+class Customer(Base):
+    __tablename__ = "customers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False, index=True)
+    tableId = Column(String, nullable=True)
+    scannedAt = Column(DateTime, nullable=False, server_default=func.now())
+

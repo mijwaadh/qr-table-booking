@@ -1,28 +1,75 @@
 import React, { useState } from 'react';
 import { useRestaurant } from '../contexts/RestaurantContext';
 import TopNavBar from '../components/TopNavBar';
+import BillPreviewModal from '../components/BillPreviewModal';
 import { 
-  Users, 
-  Clock, 
   Receipt, 
-  QrCode, 
   PlusCircle, 
-  Plus
+  Plus,
+  Printer,
+  X
 } from 'lucide-react';
+import type { Table, MenuItem } from '../types';
 
 export const Tables: React.FC = () => {
-  const { tables, settleBill, addTable } = useRestaurant();
+  const { tables, orders, settleBill, addTable } = useRestaurant();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [tableName, setTableName] = useState('');
+  const [tableSeats, setTableSeats] = useState(4);
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<{ id: string; name: string } | null>(null);
+
+  // Table action & billing modal state
+  const [activeTableModal, setActiveTableModal] = useState<Table | null>(null);
+  const [tablePaymentMethod, setTablePaymentMethod] = useState<'UPI' | 'Card' | 'Cash'>('Cash');
+  const [tablePaidAmount, setTablePaidAmount] = useState<number | ''>(1000);
+
+  // Universal Bill Preview state
+  const [showBillPreview, setShowBillPreview] = useState(false);
+  const [previewOrderData, setPreviewOrderData] = useState<{
+    tableId: string;
+    tableName: string;
+    items: { menuItem: MenuItem; quantity: number }[];
+    amount: number;
+    orderType: string;
+    customerName?: string;
+  } | null>(null);
+
+  const totalTables = tables.length;
+  const availableCount = tables.filter(t => t.status === 'AVAILABLE').length;
+  const occupiedCount = tables.filter(t => t.status === 'OCCUPIED').length;
+  const pendingCount = tables.filter(t => t.status === 'PAYMENT_PENDING').length;
+
+  const filteredTables = tables.filter(t => 
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    t.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleShowQRModal = (id: string, name: string) => {
     setSelectedTableForQR({ id, name });
     setShowQRModal(true);
   };
 
-  const handlePrintQR = (tableId: string, tableName: string) => {
+  const handleAddTable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tableName.trim()) return;
+    addTable(tableName.trim(), tableSeats);
+    setTableName('');
+    setTableSeats(4);
+    setShowAddModal(false);
+  };
+
+  const handleCardClick = (table: Table) => {
+    if (table.status === 'AVAILABLE') {
+      handleShowQRModal(table.id, table.name);
+    } else {
+      setActiveTableModal(table);
+      setTablePaidAmount(Math.max(1000, Math.ceil((table.amount || 100) / 100) * 100));
+    }
+  };
+
+  const handlePrintQR = (tableId: string, tableNameStr: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Pop-up blocker is enabled. Please allow pop-ups for this site.');
@@ -33,7 +80,7 @@ export const Tables: React.FC = () => {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Print QR - ${tableName}</title>
+          <title>Print QR - ${tableNameStr}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
             body {
@@ -78,69 +125,31 @@ export const Tables: React.FC = () => {
               letter-spacing: 1px;
               margin-top: 10px;
             }
-            .subtitle {
-              font-size: 10px;
-              font-weight: 600;
-              color: #5d5e66;
-              letter-spacing: 2px;
-              margin-bottom: 10px;
-            }
-            .qr-container {
+            .qr-wrapper {
               background: white;
-              padding: 10px;
-              border-radius: 12px;
-              box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-              border: 1px solid rgba(0,108,73,0.15);
-              width: 150px;
-              height: 150px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
+              padding: 16px;
+              border-radius: 16px;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             }
-            .qr-container img {
-              width: 100%;
-              height: 100%;
-            }
-            .table-number {
-              font-size: 24px;
+            .table-title {
+              font-size: 36px;
               font-weight: 900;
               color: #1a1c1e;
-              margin: 10px 0;
-            }
-            .footer {
-              font-size: 9px;
-              color: #5d5e66;
-              line-height: 1.4;
-              margin-bottom: 10px;
-              max-width: 90%;
-            }
-            @media print {
-              .qr-card {
-                border: none;
-                border-radius: 0;
-                width: 100%;
-                height: 100%;
-              }
+              margin: 0;
             }
           </style>
         </head>
         <body>
           <div class="qr-card">
             <div class="header">SERVEFLOW DEMO RESTAURANT</div>
-            <div class="subtitle">SCAN & ORDER</div>
-            <div class="qr-container">
-              <img src="${qrDataUrl}" alt="QR code" />
+            <div>SCAN TO VIEW MENU & ORDER</div>
+            <div class="qr-wrapper">
+              <img src="${qrDataUrl}" width="180" height="180" />
             </div>
-            <div class="table-number">${tableName}</div>
-            <div class="footer">Scan with your phone camera to order directly from your table.</div>
+            <div class="table-title">${tableNameStr}</div>
           </div>
           <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                window.close();
-              }, 500);
-            };
+            window.onload = () => { window.print(); };
           </script>
         </body>
       </html>
@@ -148,34 +157,36 @@ export const Tables: React.FC = () => {
     printWindow.document.close();
   };
 
-  // Form states for adding table
-  const [tableName, setTableName] = useState('');
-  const [tableSeats, setTableSeats] = useState(4);
+  const handleSettleActiveTable = () => {
+    if (!activeTableModal) return;
+    const tOrders = orders.filter(o => o.tableId === activeTableModal.id && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+    const itemsToPreview = tOrders.length > 0 
+      ? tOrders.flatMap(o => o.items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity })))
+      : [
+          { menuItem: { id: 't1', name: 'Special Deluxe Thali', price: activeTableModal.amount || 250.0, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }
+        ];
 
-  // Calculations
-  const totalTables = tables.length;
-  const availableCount = tables.filter(t => t.status === 'AVAILABLE').length;
-  const occupiedCount = tables.filter(t => t.status === 'OCCUPIED').length;
-  const pendingCount = tables.filter(t => t.status === 'PAYMENT_PENDING').length;
+    const customName = localStorage.getItem(`sf_table_name_${activeTableModal.id}`) || activeTableModal.name;
 
-  const filteredTables = tables.filter(t => 
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    setPreviewOrderData({
+      tableId: activeTableModal.id,
+      tableName: customName,
+      items: itemsToPreview as any,
+      amount: activeTableModal.amount || 250.0,
+      orderType: `Dine-In • ${customName}`,
+      customerName: customName !== activeTableModal.name ? customName : undefined
+    });
 
-  const handleSettle = (tableId: string) => {
-    settleBill(tableId);
-    alert(`Table ${tableId} bill settled. The table is now Available.`);
+    settleBill(activeTableModal.id, tablePaymentMethod);
+    localStorage.removeItem(`sf_table_name_${activeTableModal.id}`);
+    localStorage.removeItem(`sf_qr_customer_${activeTableModal.id}`);
+    setActiveTableModal(null);
+    setShowBillPreview(true);
   };
 
-  const handleAddTable = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tableName) return;
-    
-    addTable(tableName, tableSeats);
-    setShowAddModal(false);
-    setTableName('');
-  };
+  // Compute return amount for table modal cash calculator
+  const currentTableTotal = activeTableModal?.amount || 0;
+  const tableReturnAmount = typeof tablePaidAmount === 'number' && tablePaidAmount > currentTableTotal ? (tablePaidAmount - currentTableTotal) : 0;
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
@@ -188,8 +199,12 @@ export const Tables: React.FC = () => {
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-lg mb-xl">
           <div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">Tables Management</h2>
-            <p className="text-body-md text-on-surface-variant">Oversee real-time table status and floor activity.</p>
+            <h2 className="font-headline-lg text-headline-lg text-on-surface">Tables Floor Grid</h2>
+            <p className="text-body-md text-on-surface-variant">
+              Minimal floor grid. <span className="inline-block px-2 py-0.5 rounded bg-[#1a8852] text-white font-bold text-xs mx-1">Green = Available</span> 
+              <span className="inline-block px-2 py-0.5 rounded bg-[#0e86d4] text-white font-bold text-xs mx-1">Blue = Ordered</span> 
+              <span className="inline-block px-2 py-0.5 rounded bg-[#333136] text-white font-bold text-xs mx-1 border border-amber-500">Black = Billed</span>
+            </p>
           </div>
           <button 
             onClick={() => setShowAddModal(true)}
@@ -208,122 +223,189 @@ export const Tables: React.FC = () => {
           </div>
           <div className="level-2-card p-md rounded-xl bg-white flex flex-col gap-xs">
             <span className="text-label-sm text-on-surface-variant uppercase tracking-tighter text-xs font-semibold">Available</span>
-            <span className="font-headline-md text-headline-md text-primary font-bold">{availableCount}</span>
+            <span className="font-headline-md text-headline-md text-[#1a8852] font-bold">{availableCount}</span>
           </div>
           <div className="level-2-card p-md rounded-xl bg-white flex flex-col gap-xs">
-            <span className="text-label-sm text-on-surface-variant uppercase tracking-tighter text-xs font-semibold">Occupied</span>
-            <span className="font-headline-md text-headline-md text-secondary font-bold">{occupiedCount}</span>
+            <span className="text-label-sm text-on-surface-variant uppercase tracking-tighter text-xs font-semibold">Ordered (Occupied)</span>
+            <span className="font-headline-md text-headline-md text-[#0e86d4] font-bold">{occupiedCount}</span>
           </div>
           <div className="level-2-card p-md rounded-xl bg-white flex flex-col gap-xs">
-            <span className="text-label-sm text-on-surface-variant uppercase tracking-tighter text-xs font-semibold">Pending</span>
-            <span className="font-headline-md text-headline-md text-tertiary font-bold">{pendingCount}</span>
+            <span className="text-label-sm text-on-surface-variant uppercase tracking-tighter text-xs font-semibold">Billed (Pending)</span>
+            <span className="font-headline-md text-headline-md text-gray-800 font-bold">{pendingCount}</span>
           </div>
         </div>
 
-        {/* Floor Layout Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-lg">
-          {filteredTables.map((table) => (
-            <div 
-              key={table.id} 
-              className={`level-2-card rounded-[16px] bg-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl group border ${
-                table.status === 'PAYMENT_PENDING' ? 'border-tertiary/20' : 'border-outline-variant/30'
-              }`}
-            >
-              {/* Card Header */}
-              <div className="p-lg flex justify-between items-start border-b border-gray-50">
-                <div className="flex flex-col">
-                  <span className={`text-5xl leading-none font-extrabold transition-colors ${
-                    table.status === 'AVAILABLE' ? 'text-primary/10 group-hover:text-primary/25' :
-                    table.status === 'OCCUPIED' ? 'text-secondary/10 group-hover:text-secondary/25' :
-                    'text-tertiary/10 group-hover:text-tertiary/25'
-                  }`}>{table.id}</span>
-                  <span className="font-headline-sm text-headline-sm -mt-5 font-bold">{table.name}</span>
-                </div>
-                <span className={`px-md py-1 text-label-sm rounded-full font-bold flex items-center gap-xs text-xs ${
-                  table.status === 'AVAILABLE' ? 'bg-primary/10 text-primary' :
-                  table.status === 'OCCUPIED' ? 'bg-secondary/10 text-secondary' :
-                  'bg-tertiary/10 text-tertiary'
-                }`}>
-                  {table.status === 'AVAILABLE' && <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></span>}
-                  {table.status === 'OCCUPIED' && <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>}
-                  {table.status === 'PAYMENT_PENDING' && <span className="w-1.5 h-1.5 bg-tertiary rounded-full animate-bounce"></span>}
-                  {table.status === 'AVAILABLE' ? 'Available' : table.status === 'OCCUPIED' ? 'Occupied' : 'Pending Bill'}
-                </span>
-              </div>
+        {/* Minimal Floor Layout Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {filteredTables.map((table) => {
+            // Check stored custom customer name or table name
+            const customName = localStorage.getItem(`sf_table_name_${table.id}`) || table.name;
+            const isOrdered = table.status === 'OCCUPIED';
+            const isBilled = table.status === 'PAYMENT_PENDING';
+            
+            // Color rules requested by user: Green if available, Blue if ordered, Black if billed
+            const cardBg = isBilled 
+              ? 'bg-[#333136] text-white border-2 border-amber-500 shadow-lg' 
+              : isOrdered 
+              ? 'bg-[#0e86d4] text-white border border-sky-400 shadow-md' 
+              : 'bg-[#1a8852] text-white border border-emerald-500/80 shadow-sm';
 
-              {/* Card Content */}
-              <div className="p-lg space-y-md">
-                {table.status === 'AVAILABLE' ? (
-                  <div className="flex items-center gap-sm text-on-surface-variant text-sm">
-                    <Users className="w-4 h-4" />
-                    <span>{table.seats} Seats</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between text-on-surface-variant text-sm">
-                    <div className="flex items-center gap-xs">
-                      <Clock className="w-4 h-4" />
-                      <span>{table.elapsedMinutes} mins</span>
-                    </div>
-                    {table.amount && (
-                      <div className="flex items-center gap-xs font-semibold">
-                        <Receipt className="w-4 h-4" />
-                        <span>₹{table.amount.toFixed(2)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Card Actions */}
-                <div className="flex flex-col gap-sm pt-md">
-                  {table.status === 'PAYMENT_PENDING' ? (
-                    <button 
-                      onClick={() => handleSettle(table.id)}
-                      className="w-full py-2.5 rounded-lg bg-tertiary text-on-tertiary font-semibold text-sm hover:bg-tertiary/90 shadow-md transition-all"
-                    >
-                      Settle Bill
-                    </button>
-                  ) : table.status === 'OCCUPIED' ? (
-                    <button 
-                      onClick={() => alert(`Showing active order for ${table.name}`)}
-                      className="w-full py-2.5 rounded-lg bg-secondary text-on-secondary font-semibold text-sm hover:bg-secondary/90 shadow-sm transition-all"
-                    >
-                      View Order
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => alert(`Booking details for ${table.name}`)}
-                      className="w-full py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container transition-all font-medium text-sm"
-                    >
-                      View Details
-                    </button>
+            return (
+              <div 
+                key={table.id}
+                onClick={() => handleCardClick(table)}
+                className={`${cardBg} rounded-2xl p-3 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-95`}
+              >
+                <div className="flex justify-between items-start gap-1">
+                  <span className="font-extrabold text-sm truncate leading-snug">{customName}</span>
+                  {isBilled && (
+                    <span className="text-[10px] font-bold bg-amber-500/30 border border-amber-400/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
+                      Bill No: {table.id.replace(/^T0?/, '') || 6}
+                    </span>
                   )}
-                   <button 
-                    onClick={() => handleShowQRModal(table.id, table.name)}
-                    className="w-full py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface-variant flex items-center justify-center gap-sm hover:text-primary transition-all text-sm font-medium"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    <span>Generate QR</span>
-                  </button>
+                </div>
+
+                <div className="flex justify-between items-end mt-2 pt-1 border-t border-white/10">
+                  {table.status === 'AVAILABLE' ? (
+                    <>
+                      <span className="text-xs font-medium opacity-90">{table.seats} Seats</span>
+                      <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded">QR</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[11px] opacity-85">{table.elapsedMinutes || 20}m</span>
+                      <span className="font-extrabold text-sm">Rs {(table.amount || 0).toFixed(2)}</span>
+                    </>
+                  )}
                 </div>
               </div>
+            );
+          })}
 
-            </div>
-          ))}
-
-          {/* Quick Add Bento box */}
+          {/* Quick Add Card */}
           <div 
             onClick={() => setShowAddModal(true)}
-            className="rounded-[16px] border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-xl group min-h-[280px]"
+            className="rounded-2xl border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-3 min-h-[90px] text-on-surface-variant hover:text-primary"
           >
-            <div className="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center mb-md group-hover:bg-primary/10 transition-colors">
-              <PlusCircle className="w-8 h-8 text-outline group-hover:text-primary transition-colors" />
-            </div>
-            <span className="font-headline-sm text-on-surface-variant group-hover:text-primary transition-colors font-bold">Quick Add Table</span>
-            <p className="text-label-sm text-on-surface-variant text-center mt-xs text-xs">Define seats & position</p>
+            <PlusCircle className="w-6 h-6 mb-1" />
+            <span className="font-bold text-xs">Add Table</span>
           </div>
         </div>
 
       </div>
+
+      {/* Table Settle / View Order Modal with Cash Calculator */}
+      {activeTableModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5 border border-outline-variant/30 text-left">
+            <div className="flex justify-between items-start border-b border-outline-variant/20 pb-3">
+              <div>
+                <h3 className="text-xl font-extrabold text-on-surface">
+                  {localStorage.getItem(`sf_table_name_${activeTableModal.id}`) || activeTableModal.name} ({activeTableModal.id})
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
+                  Status: <span className="font-bold text-primary">{activeTableModal.status}</span> • Seated: {activeTableModal.elapsedMinutes || 20} mins ago
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveTableModal(null)}
+                className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Bill Summary */}
+            <div className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/30 space-y-2">
+              <div className="flex justify-between text-xs text-on-surface-variant">
+                <span>Subtotal & Taxes</span>
+                <span>Included</span>
+              </div>
+              <div className="flex justify-between text-base font-extrabold text-on-surface pt-1 border-t border-outline-variant/30">
+                <span>Total Amount Due</span>
+                <span className="text-primary text-xl">₹{(activeTableModal.amount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-on-surface uppercase tracking-wider">Payment Method</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['UPI', 'Card', 'Cash'] as const).map(pm => (
+                  <button
+                    key={pm}
+                    onClick={() => setTablePaymentMethod(pm)}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      tablePaymentMethod === pm ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {pm}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Cash Calculator Box matching user screenshot requirement */}
+            {tablePaymentMethod === 'Cash' && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between text-xs font-bold text-on-surface">
+                  <span>Customer Paid Amount (Cash Received):</span>
+                  <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-amber-500/40 shadow-inner">
+                    <span className="text-gray-500 font-bold">₹</span>
+                    <input 
+                      type="number" 
+                      value={tablePaidAmount} 
+                      onChange={(e) => setTablePaidAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                      placeholder="1000"
+                      className="w-20 font-extrabold text-sm text-right bg-transparent outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-sm font-extrabold text-on-surface pt-2 border-t border-amber-500/20">
+                  <span>Return Amount (Balance):</span>
+                  <span className="text-base px-3 py-1 bg-amber-500 text-white rounded-xl shadow-md">
+                    ₹{tableReturnAmount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={handleSettleActiveTable}
+                className="bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Print & Settle Bill</span>
+              </button>
+              <button
+                onClick={() => {
+                  const tOrders = orders.filter(o => o.tableId === activeTableModal.id && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+                  const itemsToPreview = tOrders.length > 0 
+                    ? tOrders.flatMap(o => o.items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity })))
+                    : [{ menuItem: { id: 't1', name: 'Special Deluxe Thali', price: activeTableModal.amount || 250.0, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }];
+                  const customName = localStorage.getItem(`sf_table_name_${activeTableModal.id}`) || activeTableModal.name;
+                  setPreviewOrderData({
+                    tableId: activeTableModal.id,
+                    tableName: customName,
+                    items: itemsToPreview as any,
+                    amount: activeTableModal.amount || 250.0,
+                    orderType: `Dine-In • ${customName}`,
+                    customerName: customName !== activeTableModal.name ? customName : undefined
+                  });
+                  setActiveTableModal(null);
+                  setShowBillPreview(true);
+                }}
+                className="bg-surface-container-high border border-outline-variant text-on-surface py-3 rounded-xl font-bold text-sm hover:bg-surface-container active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Printer className="w-4 h-4 text-outline" />
+                <span>Print Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Table Modal */}
       {showAddModal && (
@@ -373,6 +455,7 @@ export const Tables: React.FC = () => {
           </div>
         </div>
       )}
+
       {/* Table QR Modal */}
       {showQRModal && selectedTableForQR && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-md">
@@ -380,14 +463,12 @@ export const Tables: React.FC = () => {
             <h3 className="font-headline-md text-headline-md font-bold mb-xs text-center">Table QR Code</h3>
             <p className="font-body-sm text-body-sm text-on-surface-variant text-center mb-lg">Scan to view menu & order directly</p>
             
-            {/* Beautiful Printable Card Layout */}
             <div className="bg-surface-container-low p-xl rounded-2xl border-2 border-outline-variant/30 flex flex-col items-center w-full shadow-inner relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-primary"></div>
               
               <span className="font-headline-sm text-headline-sm font-extrabold text-primary tracking-wide mb-xs">SERVEFLOW DEMO RESTAURANT</span>
               <span className="font-label-sm text-label-sm text-on-surface-variant mb-md font-semibold tracking-wider">SCAN & ORDER</span>
               
-              {/* QR Image */}
               <div className="bg-white p-md rounded-xl shadow-md border border-outline-variant/20 flex items-center justify-center mb-md w-48 h-48">
                 <img 
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/order-now?table=${selectedTableForQR.id}`)}`}
@@ -421,6 +502,18 @@ export const Tables: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Universal Bill Preview Modal */}
+      <BillPreviewModal
+        isOpen={showBillPreview}
+        onClose={() => setShowBillPreview(false)}
+        tableId={previewOrderData?.tableId}
+        tableName={previewOrderData?.tableName}
+        items={previewOrderData?.items}
+        amount={previewOrderData?.amount}
+        orderType={previewOrderData?.orderType}
+        customerName={previewOrderData?.customerName}
+      />
 
       <footer className="mt-auto py-lg px-xl text-label-sm text-on-surface-variant/60 flex justify-between text-xs">
         <span>ServeFlow v2.4.1</span>

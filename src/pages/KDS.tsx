@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRestaurant } from '../contexts/RestaurantContext';
+import { OrderDetailsModal } from '../components/OrderDetailsModal';
+import type { Order } from '../types';
 import { 
   ChefHat, 
   Clock, 
@@ -9,17 +11,18 @@ import {
   Bell, 
   Settings, 
   CheckCircle,
-  Check,
   ChevronLeft,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 
 export const KDS: React.FC = () => {
   const navigate = useNavigate();
-  const { orders, updateOrderStatus, toggleItemCompleteInOrder } = useRestaurant();
+  const { orders, updateOrderStatus } = useRestaurant();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Update clock every second
   useEffect(() => {
@@ -29,7 +32,7 @@ export const KDS: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const activeKdsOrders = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+  const activeKdsOrders = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'READY');
 
 
   const filteredOrders = activeKdsOrders.filter(order => 
@@ -109,13 +112,20 @@ export const KDS: React.FC = () => {
             return (
               <div 
                 key={order.id} 
-                className={`bg-white rounded-2xl border-2 flex flex-col shadow-lg overflow-hidden transition-all duration-300 transform hover:scale-[1.02] ${
-                  isNew ? 'order-glow-new' : isLate ? 'border-error-container' : 'border-outline-variant/60'
+                onClick={() => setSelectedOrder(order)}
+                className={`bg-white rounded-2xl border-2 flex flex-col shadow-lg overflow-hidden transition-all duration-300 transform hover:scale-[1.02] cursor-pointer ${
+                  isLate ? 'border-error bg-error/10 animate-pulse shadow-error/20' : isNew ? 'order-glow-new border-primary/50' : 'border-outline-variant/60 hover:border-primary/50'
                 }`}
               >
+                {isLate && (
+                  <div className="bg-error text-white font-label-md text-xs font-black py-1 px-3 flex items-center justify-center gap-1 uppercase tracking-wider animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Warning: &gt;20m Max Wait Exceeded!</span>
+                  </div>
+                )}
                 {/* Header */}
                 <div className={`p-md flex justify-between items-center border-b ${
-                  isLate ? 'bg-error-container/20 border-error-container' : 'bg-surface-container-highest border-outline-variant'
+                  isLate ? 'bg-error/15 border-error/30' : 'bg-surface-container-highest border-outline-variant'
                 }`}>
                   <div className="flex items-baseline gap-xs">
                     <span className={`font-display text-4xl leading-none font-extrabold ${isLate ? 'text-error' : 'text-primary'}`}>
@@ -125,35 +135,28 @@ export const KDS: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-label-sm text-xs text-on-surface-variant font-bold">ORDER #{order.id}</p>
-                    <p className={`font-headline-sm text-lg font-black animate-pulse ${
-                      isLate ? 'text-error' : isNew ? 'text-primary-container' : 'text-secondary'
+                    <p className={`font-headline-sm text-lg font-black flex items-center justify-end gap-1 ${
+                      isLate ? 'text-error animate-pulse' : isNew ? 'text-primary' : 'text-secondary'
                     }`}>
-                      {order.elapsedMinutes}:00
+                      <Clock className="w-4 h-4" />
+                      <span>{order.elapsedMinutes}:00</span>
                     </p>
                   </div>
                 </div>
 
                 {/* Items List */}
-                <div className="flex-grow p-lg space-y-md overflow-y-auto max-h-[300px] custom-scrollbar">
+                <div className="flex-grow p-lg space-y-sm overflow-y-auto max-h-[300px] custom-scrollbar">
                   {order.items.map((item, idx) => (
                     <div 
                       key={idx} 
-                      onClick={() => toggleItemCompleteInOrder(order.id, idx)}
-                      className={`flex items-start gap-md group cursor-pointer ${item.completed ? 'opacity-50' : ''}`}
+                      className="flex flex-col py-1 border-b border-outline-variant/30 last:border-0"
                     >
-                      <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                        item.completed ? 'bg-primary border-primary text-white' : 'border-outline-variant bg-white group-hover:border-primary'
-                      }`}>
-                        {item.completed && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
-                      </div>
-                      <div className="flex-grow">
-                        <p className={`font-headline-sm text-base text-on-surface font-bold ${item.completed ? 'line-through decoration-2' : ''}`}>
-                          {item.quantity}x {item.menuItem.name}
-                        </p>
-                        {item.notes && (
-                          <p className="font-label-md text-xs text-tertiary font-semibold uppercase mt-0.5">{item.notes}</p>
-                        )}
-                      </div>
+                      <p className="font-headline-sm text-lg text-on-surface font-bold">
+                        {item.quantity}x {item.menuItem.name}
+                      </p>
+                      {item.notes && (
+                        <p className="font-label-md text-xs text-tertiary font-semibold uppercase mt-0.5">{item.notes}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -212,7 +215,7 @@ export const KDS: React.FC = () => {
           <span className="font-label-sm text-xs font-semibold text-on-surface-variant">Kitchen #1 Station</span>
         </div>
       </footer>
-
+      <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
     </div>
   );
 };

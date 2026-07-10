@@ -179,12 +179,14 @@ export const AIIntelligence: React.FC = () => {
 
   // Market Commodities State (synced from DB predictions)
   const [commodities, setCommodities] = useState<MarketCommodity[]>([
-    { id: '1', name: 'Roma Tomatoes', unit: 'kg', todayPrice: 52, yesterdayPrice: 46, difference: 6, trend: 'increasing', prediction: 'Monsoon delays will elevate prices by 5% this week.' },
-    { id: '2', name: 'Wagyu Beef Flank', unit: 'kg', todayPrice: 2200, yesterdayPrice: 2150, difference: 50, trend: 'increasing', prediction: 'Stabilizing soon as supplier flight cargo resumes.' },
-    { id: '3', name: 'Atlantic Salmon Filet', unit: 'kg', todayPrice: 1150, yesterdayPrice: 1200, difference: -50, trend: 'decreasing', prediction: 'Sliding further by 4% on healthy global catches.' },
-    { id: '4', name: 'Fresh Cream 35%', unit: 'L', todayPrice: 180, yesterdayPrice: 180, difference: 0, trend: 'stable', prediction: 'Contract rates locked; stable price for 15 days.' },
-    { id: '5', name: 'Yellow Bell Peppers', unit: 'kg', todayPrice: 110, yesterdayPrice: 125, difference: -15, trend: 'decreasing', prediction: 'Abundant mandi arrivals; prices expected to hover low.' },
-    { id: '6', name: 'Hass Avocados', unit: 'piece', todayPrice: 95, yesterdayPrice: 85, difference: 10, trend: 'increasing', prediction: 'High import surcharge; expect rising prices to hold.' },
+    { id: 'comm_0', name: 'Onion (Red Nasik Big - Lasalgaon Mandi)', unit: 'kg', todayPrice: 38.0, yesterdayPrice: 36.0, difference: 2.0, trend: 'increasing', prediction: 'Prophet predicts price surge to Rs. 42/kg (+11%) due to monsoon delays in Maharashtra.' },
+    { id: 'comm_1', name: 'Potato (Jyoti Desi - Agra Mandi)', unit: 'kg', todayPrice: 24.0, yesterdayPrice: 25.0, difference: -1.0, trend: 'decreasing', prediction: 'Cold storage releases from UP increasing arrivals by 15%; prices sliding to Rs. 22/kg.' },
+    { id: 'comm_2', name: 'Tomato (Hybrid Grade A - Azadpur Mandi)', unit: 'kg', todayPrice: 48.0, yesterdayPrice: 43.0, difference: 5.0, trend: 'increasing', prediction: 'Heavy rainfall in Kolar belt delaying trucks; expect elevated prices around Rs. 54/kg.' },
+    { id: 'comm_3', name: 'Tur Dal (Grade A - Akola Mandi)', unit: 'kg', todayPrice: 162.0, yesterdayPrice: 162.0, difference: 0.0, trend: 'stable', prediction: 'Govt buffer stock release maintaining stable wholesale rates across western mandis.' },
+    { id: 'comm_4', name: 'Basmati Rice (Pusa 1121 - Karnal Mandi)', unit: 'kg', todayPrice: 115.0, yesterdayPrice: 118.0, difference: -3.0, trend: 'decreasing', prediction: 'New kharif crop arrivals lowering modal auction prices across Haryana mandis.' },
+    { id: 'comm_5', name: 'Garlic (Desi Ooty - Neemuch Mandi)', unit: 'kg', todayPrice: 210.0, yesterdayPrice: 198.0, difference: 12.0, trend: 'increasing', prediction: 'Lower yield in MP and high export demand sustaining upward momentum to Rs. 225/kg.' },
+    { id: 'comm_6', name: 'Mustard Oil (Kachi Ghani - Alwar Mandi)', unit: 'L', todayPrice: 142.0, yesterdayPrice: 142.0, difference: 0.0, trend: 'stable', prediction: 'Seed arrival parity holding mill oil prices steady for the next 14 days.' },
+    { id: 'comm_7', name: 'Broiler Chicken (Ghazipur Wholesale Market)', unit: 'kg', todayPrice: 185.0, yesterdayPrice: 192.0, difference: -7.0, trend: 'decreasing', prediction: 'Reduced feed cost and higher poultry farm turnouts easing live wholesale prices.' }
   ]);
 
   // Market History raw logs states
@@ -481,27 +483,27 @@ export const AIIntelligence: React.FC = () => {
 
   // Price Trend Chart Data (Line Chart)
   const priceTrendData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+    labels: ['Day -30', 'Day -25', 'Day -20', 'Day -15', 'Day -10', 'Day -5', 'Today'],
     datasets: [
       {
-        label: 'Wagyu Beef (per kg)',
-        data: [2100, 2050, 2180, 2220, 2150, 2190, 2200],
+        label: 'Tur Dal Grade A (Akola Mandi ₹/kg)',
+        data: [152, 155, 158, 160, 162, 162, 162],
         borderColor: '#a43a3a', // tertiary
         backgroundColor: 'rgba(164, 58, 58, 0.05)',
         tension: 0.4,
         fill: true,
       },
       {
-        label: 'Atlantic Salmon (per kg)',
-        data: [1300, 1280, 1240, 1260, 1210, 1180, 1150],
+        label: 'Onion Red Nasik (Lasalgaon ₹/kg)',
+        data: [26, 28, 30, 32, 34, 36, 38],
         borderColor: '#0058be', // secondary
         backgroundColor: 'rgba(0, 88, 190, 0.05)',
         tension: 0.4,
         fill: true,
       },
       {
-        label: 'Roma Tomatoes (per kg)',
-        data: [35, 38, 42, 40, 48, 45, 52],
+        label: 'Tomato Hybrid (Azadpur Mandi ₹/kg)',
+        data: [35, 38, 42, 40, 48, 43, 48],
         borderColor: '#006c49', // primary
         backgroundColor: 'rgba(0, 108, 73, 0.05)',
         tension: 0.4,
