@@ -11,9 +11,6 @@ import {
   Table2, 
   AlertCircle, 
   MoreHorizontal, 
-  QrCode, 
-  PlusCircle, 
-  BellRing,
   Clock,
   AlertTriangle
 } from 'lucide-react';
@@ -46,14 +43,6 @@ export const Dashboard: React.FC = () => {
       return matchSearch;
     })
     .slice(0, 5); // top 5 recent orders
-
-  const handleBroadcastAlert = () => {
-    alert('Broadcast Alert: Notification sent to all kitchen staff stations.');
-  };
-
-  const handleGenerateQR = () => {
-    setShowQRModal(true);
-  };
 
   const handlePrintQR = (tableId: string) => {
     const printWindow = window.open('', '_blank');
@@ -343,7 +332,7 @@ export const Dashboard: React.FC = () => {
                                 isLate ? 'text-error' : order.elapsedMinutes >= 12 ? 'text-amber-600' : 'text-primary'
                               }`}>
                                 <Clock className="w-3 h-3" />
-                                {order.elapsedMinutes}m elapsed
+                                {order.elapsedMinutes}m
                               </span>
                             </div>
                           </td>

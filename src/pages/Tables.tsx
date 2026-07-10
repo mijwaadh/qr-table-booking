@@ -10,8 +10,7 @@ import {
   X,
   Eye,
   Tag,
-  FileText,
-  IndianRupee
+  FileText
 } from 'lucide-react';
 import type { Table, MenuItem } from '../types';
 import { playBilledSound, playItemTapSound } from '../utils/audioAlerts';

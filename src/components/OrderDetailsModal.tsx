@@ -56,7 +56,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onC
           <div class="meta">
             <div><strong>Order:</strong> #${order.id}</div>
             <div><strong>Table:</strong> ${order.tableId}</div>
-            <div><strong>Time Booked:</strong> ${order.time} (${order.elapsedMinutes}m elapsed)</div>
+            <div><strong>Time Booked:</strong> ${order.time} (${order.elapsedMinutes}m)</div>
           </div>
           ${order.items.map(i => `
             <div class="item">
@@ -128,7 +128,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ order, onC
           </div>
           <div className="flex items-center gap-2 font-mono font-bold text-sm bg-black/10 px-3 py-1 rounded-lg">
             <Clock className="w-4 h-4 animate-spin-slow" />
-            <span>Elapsed: {order.elapsedMinutes} min</span>
+            <span>{order.elapsedMinutes}m</span>
           </div>
         </div>
 

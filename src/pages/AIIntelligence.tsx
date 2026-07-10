@@ -114,7 +114,7 @@ interface ChatMessage {
 }
 
 export const AIIntelligence: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || 'overview';
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,10 +126,6 @@ export const AIIntelligence: React.FC = () => {
     }
   }, [tabParam]);
 
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-    setSearchParams({ tab: tabId });
-  };
   const [regenerating, setRegenerating] = useState(false);
   const [appliedRecommendations, setAppliedRecommendations] = useState<{ [key: string]: boolean }>({});
   
@@ -166,27 +162,13 @@ export const AIIntelligence: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, isTyping]);
 
-  // Sub-tabs list
-  const subTabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'market', label: 'Market Intelligence' },
-    { id: 'forecast', label: 'Forecast & Predictions' },
-    { id: 'supplier', label: 'Supplier Intelligence' },
-    { id: 'menu', label: 'Menu Profitability' },
-    { id: 'inventory', label: 'Inventory Insights' },
-    { id: 'waste', label: 'Waste Analysis' },
-    { id: 'purchase', label: 'Purchase Recommendations' },
-    { id: 'copilot', label: 'AI Copilot' },
-    { id: 'reports', label: 'Reports' }
-  ];
-
   // API URL
   const rawApiUrl = ((import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api').trim().replace(/\/$/, '');
   const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 
   // Market Commodities State (synced from DB predictions)
   const [commodities, setCommodities] = useState<MarketCommodity[]>([]);
-  const [commoditiesLoading, setCommoditiesLoading] = useState(true);
+  const [_commoditiesLoading, setCommoditiesLoading] = useState(true);
 
   // Sort control for market table
   const [marketSortBy, setMarketSortBy] = useState<'yesterday' | 'week' | 'month'>('yesterday');
@@ -649,27 +631,6 @@ export const AIIntelligence: React.FC = () => {
         </button>
       </div>
 
-      {/* Sub-tabs Horizontal Navigation */}
-      <div className="px-xl mt-lg border-b border-outline-variant/30 bg-surface-bright sticky top-0 z-30">
-        <div className="flex gap-lg overflow-x-auto no-scrollbar py-2">
-          {subTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`px-sm py-2 text-sm font-semibold whitespace-nowrap border-b-2 transition-all relative ${
-                activeTab === tab.id 
-                  ? 'border-primary text-primary font-bold' 
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface hover:border-outline-variant/45'
-              }`}
-            >
-              {tab.label}
-              {tab.id === 'copilot' && (
-                <span className="absolute -top-1 -right-2 w-2 h-2 bg-primary rounded-full animate-ping"></span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Tab Contents Frame */}
       <main className="p-xl flex-grow overflow-y-auto">

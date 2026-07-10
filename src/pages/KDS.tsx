@@ -15,8 +15,7 @@ import {
   VolumeX,
   ChevronDown,
   Utensils,
-  X,
-  RefreshCw
+  X
 } from 'lucide-react';
 import { playNewOrderSound, playKOTReadySound, isAudioAlertsEnabled, setAudioAlertsEnabled, playItemTapSound, playBilledSound } from '../utils/audioAlerts';
 
@@ -31,7 +30,7 @@ export const KDS: React.FC = () => {
   const [prevOrdersCount, setPrevOrdersCount] = useState<number>(orders.length);
 
   // KDS UI & Notification State
-  const [showBumpOrders, setShowBumpOrders] = useState(false);
+  const [showBumpOrders, _setShowBumpOrders] = useState(false);
   const [activeStateDropdown, setActiveStateDropdown] = useState<string | null>(null);
   const [bumpedOrderIds, setBumpedOrderIds] = useState<string[]>([]);
   const [kdsToast, setKdsToast] = useState<string | null>(null);
@@ -147,46 +146,8 @@ export const KDS: React.FC = () => {
 
       {/* Main KDS Grid & Top Bar */}
       <main className="p-6 container mx-auto max-w-[1920px] flex-1 space-y-6">
-        {/* Top Control Bar matching MBill KDS screenshot exactly */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <label className="flex items-center gap-2.5 cursor-pointer text-sm font-extrabold text-gray-800 select-none hover:text-black transition-colors">
-              <input 
-                type="checkbox"
-                checked={showBumpOrders}
-                onChange={(e) => setShowBumpOrders(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
-              />
-              <span>Show bump orders</span>
-            </label>
-
-            <button 
-              onClick={() => {
-                playItemTapSound();
-                triggerKdsToast('KDS live queue refreshed from server');
-              }}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4 text-gray-600" />
-              <span>Refresh</span>
-            </button>
-
-            <button 
-              onClick={() => {
-                const pending = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
-                if (pending.length === 0) return;
-                if (confirm(`Mark all ${pending.length} active KOT orders as Served?`)) {
-                  pending.forEach(o => updateOrderStatus(o.id, 'COMPLETED'));
-                  playBilledSound();
-                  triggerKdsToast('All KOT orders settled & marked as served.');
-                }
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
-            >
-              Settle All
-            </button>
-          </div>
-
+        {/* Top Control Bar */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-end">
           <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl border border-gray-200 font-extrabold text-sm text-gray-800">
             <span>Total pending KOT&apos;s :</span>
             <span className="w-6 h-6 rounded-full bg-red-500 text-white font-black text-xs inline-flex items-center justify-center shadow-sm">
@@ -240,7 +201,7 @@ export const KDS: React.FC = () => {
                   <div className="bg-[#5b5b5b] text-white px-3.5 py-2.5 rounded-b-xl flex items-center justify-between text-xs font-bold relative">
                     <div className="flex items-center gap-1.5 text-gray-200">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>{order.elapsedMinutes === 0 ? 'Just Placed' : `${order.elapsedMinutes}m ago`}</span>
+                      <span>{order.elapsedMinutes === 0 ? 'Just Placed' : `${order.elapsedMinutes}m`}</span>
                     </div>
 
                     {/* Trigger Button: [ Placed ▼ ] */}

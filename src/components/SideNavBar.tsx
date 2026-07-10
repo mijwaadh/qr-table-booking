@@ -64,38 +64,40 @@ export const SideNavBar: React.FC = () => {
                 </NavLink>
                 
                 {/* Branch sub-tree */}
-                <div className="pl-[26px] flex flex-col font-mono text-[10px] text-on-surface-variant/75 select-none mt-1">
-                  <div className="pl-[26px] leading-none opacity-40 mb-0.5">│</div>
-                  {[
-                    { tab: 'overview', label: 'Overview' },
-                    { tab: 'market', label: 'Market Intelligence' },
-                    { tab: 'forecast', label: 'Forecast & Predictions' },
-                    { tab: 'supplier', label: 'Supplier Intelligence' },
-                    { tab: 'menu', label: 'Menu Profitability' },
-                    { tab: 'inventory', label: 'Inventory Insights' },
-                    { tab: 'waste', label: 'Waste Analysis' },
-                    { tab: 'purchase', label: 'Purchase Recommendations' },
-                    { tab: 'copilot', label: 'AI Copilot' },
-                    { tab: 'reports', label: 'Reports' }
-                  ].map((sub, sIdx, arr) => {
-                    const isLast = sIdx === arr.length - 1;
-                    const isSubActive = isAiIntelligenceActive && activeTabParam === sub.tab;
-                    const branch = isLast ? '└──' : '├──';
-                    
-                    return (
-                      <NavLink
-                        key={sub.tab}
-                        to={`/ai-intelligence?tab=${sub.tab}`}
-                        className={`flex items-center hover:text-primary transition-colors py-1 pl-md ${
-                          isSubActive ? 'text-primary font-bold' : 'text-on-surface-variant/80'
-                        }`}
-                      >
-                        <span className="text-outline mr-sm opacity-50 font-normal">{branch}</span>
-                        <span className="font-sans font-medium text-[11px]">{sub.label}</span>
-                      </NavLink>
-                    );
-                  })}
-                </div>
+                {isAiIntelligenceActive && (
+                  <div className="pl-[26px] flex flex-col font-mono text-[10px] text-on-surface-variant/75 select-none mt-1">
+                    <div className="pl-[26px] leading-none opacity-40 mb-0.5">│</div>
+                    {[
+                      { tab: 'overview', label: 'Overview' },
+                      { tab: 'market', label: 'Market Intelligence' },
+                      { tab: 'forecast', label: 'Forecast & Predictions' },
+                      { tab: 'supplier', label: 'Supplier Intelligence' },
+                      { tab: 'menu', label: 'Menu Profitability' },
+                      { tab: 'inventory', label: 'Inventory Insights' },
+                      { tab: 'waste', label: 'Waste Analysis' },
+                      { tab: 'purchase', label: 'Purchase Recommendations' },
+                      { tab: 'copilot', label: 'AI Copilot' },
+                      { tab: 'reports', label: 'Reports' }
+                    ].map((sub, sIdx, arr) => {
+                      const isLast = sIdx === arr.length - 1;
+                      const isSubActive = isAiIntelligenceActive && activeTabParam === sub.tab;
+                      const branch = isLast ? '└──' : '├──';
+                      
+                      return (
+                        <NavLink
+                          key={sub.tab}
+                          to={`/ai-intelligence?tab=${sub.tab}`}
+                          className={`flex items-center hover:text-primary transition-colors py-1 pl-md ${
+                            isSubActive ? 'text-primary font-bold' : 'text-on-surface-variant/80'
+                          }`}
+                        >
+                          <span className="text-outline mr-sm opacity-50 font-normal">{branch}</span>
+                          <span className="font-sans font-medium text-[11px]">{sub.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           }
