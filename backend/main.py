@@ -187,7 +187,7 @@ def seed_initial_data(db: Session):
             tableId="T04",
             status="PREPARING",
             amount=57.00,
-            time=datetime.datetime.now().strftime("%I:%M %p"),
+            time=datetime.datetime.now().isoformat(),
             elapsedMinutes=10,
             allergyAlert=False
         )
@@ -199,7 +199,7 @@ def seed_initial_data(db: Session):
         if table_04:
             table_04.status = "OCCUPIED"
             table_04.amount = 57.00
-            table_04.seatedTime = datetime.datetime.now().strftime("%I:%M %p")
+            table_04.seatedTime = datetime.datetime.now().isoformat()
             table_04.elapsedMinutes = 10
             db.commit()
 
@@ -317,16 +317,25 @@ async def update_table_status(table_id: str, payload: Dict[str, Any], db: Sessio
         raise HTTPException(status_code=404, detail="Table not found")
     
     if "status" in payload:
-        db_table.status = payload["status"]
-        if payload["status"] == "AVAILABLE":
+        new_status = payload["status"]
+        db_table.status = new_status
+        if new_status == "AVAILABLE":
             db_table.amount = None
             db_table.seatedTime = None
             db_table.elapsedMinutes = None
+        elif new_status == "PAYMENT_PENDING":
+            if db_table.seatedTime:
+                try:
+                    seated_time = datetime.datetime.fromisoformat(db_table.seatedTime)
+                    elapsed = max(0, int((datetime.datetime.now() - seated_time).total_seconds() / 60))
+                    db_table.elapsedMinutes = elapsed
+                except (ValueError, TypeError):
+                    pass
         else:
             if "amount" in payload:
                 db_table.amount = payload["amount"]
             if db_table.seatedTime is None:
-                db_table.seatedTime = datetime.datetime.now().strftime("%I:%M %p")
+                db_table.seatedTime = datetime.datetime.now().isoformat()
                 db_table.elapsedMinutes = 0
                 
     db.commit()
@@ -453,7 +462,7 @@ async def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_d
     # Create order
     count = db.query(models.Order).count()
     order_id = f"ord-{uuid.uuid4().hex[:8]}"
-    current_time = datetime.datetime.now().strftime("%I:%M %p")
+    current_time = datetime.datetime.now().isoformat()
     
     db_order = models.Order(
         id=order_id,
@@ -501,6 +510,16 @@ async def update_order_status(order_id: str, payload: Dict[str, str], db: Sessio
         old_status = db_order.status
         db_order.status = new_status
         
+        # Freeze elapsed time when order is completed or cancelled
+        if new_status in ("COMPLETED", "CANCELLED") and old_status not in ("COMPLETED", "CANCELLED"):
+            if db_order.time:
+                try:
+                    order_time = datetime.datetime.fromisoformat(db_order.time)
+                    elapsed = max(0, int((datetime.datetime.now() - order_time).total_seconds() / 60))
+                    db_order.elapsedMinutes = elapsed
+                except (ValueError, TypeError):
+                    pass  # keep existing elapsedMinutes
+        
         # If order is cancelled and wasn't already cancelled/completed, deduct amount from table
         if new_status == "CANCELLED" and old_status not in ["CANCELLED", "COMPLETED"]:
             db_table = db.query(models.Table).filter(models.Table.id == db_order.tableId).first()
@@ -518,6 +537,13 @@ async def update_order_status(order_id: str, payload: Dict[str, str], db: Sessio
                     db_table.elapsedMinutes = None
                 elif active_orders == 0 and db_table.amount > 0:
                     db_table.status = "PAYMENT_PENDING"
+                    if db_table.seatedTime:
+                        try:
+                            seated_time = datetime.datetime.fromisoformat(db_table.seatedTime)
+                            elapsed = max(0, int((datetime.datetime.now() - seated_time).total_seconds() / 60))
+                            db_table.elapsedMinutes = elapsed
+                        except (ValueError, TypeError):
+                            pass
 
         # If the order is served/completed, let's update table status to PAYMENT_PENDING if no other orders are preparing/pending
         elif new_status == "COMPLETED":
@@ -531,6 +557,13 @@ async def update_order_status(order_id: str, payload: Dict[str, str], db: Sessio
                 db_table = db.query(models.Table).filter(models.Table.id == table_id).first()
                 if db_table:
                     db_table.status = "PAYMENT_PENDING"
+                    if db_table.seatedTime:
+                        try:
+                            seated_time = datetime.datetime.fromisoformat(db_table.seatedTime)
+                            elapsed = max(0, int((datetime.datetime.now() - seated_time).total_seconds() / 60))
+                            db_table.elapsedMinutes = elapsed
+                        except (ValueError, TypeError):
+                            pass
                     
     db.commit()
     db.refresh(db_order)
@@ -776,7 +809,7 @@ async def demo_lunch_rush(db: Session = Depends(get_db)):
             count = db.query(models.Order).count()
             order_id = f"ord-rush-{uuid.uuid4().hex[:8]}"
             seated_time_dt = current_time - datetime.timedelta(minutes=config["elapsed"])
-            seated_time_str = seated_time_dt.strftime("%I:%M %p")
+            seated_time_str = seated_time_dt.isoformat()
             
             selected_items = random.sample(menu_items, random.randint(2, 4))
             total_amount = 0.0

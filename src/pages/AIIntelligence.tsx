@@ -56,6 +56,13 @@ interface MarketCommodity {
   todayPrice: number;
   yesterdayPrice: number;
   difference: number;
+  weekAgoPrice: number | null;
+  monthAgoPrice: number | null;
+  diffWeek: number | null;
+  diffMonth: number | null;
+  pctYesterday: number | null;
+  pctWeek: number | null;
+  pctMonth: number | null;
   trend: 'increasing' | 'decreasing' | 'stable';
   prediction: string;
 }
@@ -178,16 +185,11 @@ export const AIIntelligence: React.FC = () => {
   const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 
   // Market Commodities State (synced from DB predictions)
-  const [commodities, setCommodities] = useState<MarketCommodity[]>([
-    { id: 'comm_0', name: 'Onion (Red Nasik Big - Lasalgaon Mandi)', unit: 'kg', todayPrice: 38.0, yesterdayPrice: 36.0, difference: 2.0, trend: 'increasing', prediction: 'Prophet predicts price surge to Rs. 42/kg (+11%) due to monsoon delays in Maharashtra.' },
-    { id: 'comm_1', name: 'Potato (Jyoti Desi - Agra Mandi)', unit: 'kg', todayPrice: 24.0, yesterdayPrice: 25.0, difference: -1.0, trend: 'decreasing', prediction: 'Cold storage releases from UP increasing arrivals by 15%; prices sliding to Rs. 22/kg.' },
-    { id: 'comm_2', name: 'Tomato (Hybrid Grade A - Azadpur Mandi)', unit: 'kg', todayPrice: 48.0, yesterdayPrice: 43.0, difference: 5.0, trend: 'increasing', prediction: 'Heavy rainfall in Kolar belt delaying trucks; expect elevated prices around Rs. 54/kg.' },
-    { id: 'comm_3', name: 'Tur Dal (Grade A - Akola Mandi)', unit: 'kg', todayPrice: 162.0, yesterdayPrice: 162.0, difference: 0.0, trend: 'stable', prediction: 'Govt buffer stock release maintaining stable wholesale rates across western mandis.' },
-    { id: 'comm_4', name: 'Basmati Rice (Pusa 1121 - Karnal Mandi)', unit: 'kg', todayPrice: 115.0, yesterdayPrice: 118.0, difference: -3.0, trend: 'decreasing', prediction: 'New kharif crop arrivals lowering modal auction prices across Haryana mandis.' },
-    { id: 'comm_5', name: 'Garlic (Desi Ooty - Neemuch Mandi)', unit: 'kg', todayPrice: 210.0, yesterdayPrice: 198.0, difference: 12.0, trend: 'increasing', prediction: 'Lower yield in MP and high export demand sustaining upward momentum to Rs. 225/kg.' },
-    { id: 'comm_6', name: 'Mustard Oil (Kachi Ghani - Alwar Mandi)', unit: 'L', todayPrice: 142.0, yesterdayPrice: 142.0, difference: 0.0, trend: 'stable', prediction: 'Seed arrival parity holding mill oil prices steady for the next 14 days.' },
-    { id: 'comm_7', name: 'Broiler Chicken (Ghazipur Wholesale Market)', unit: 'kg', todayPrice: 185.0, yesterdayPrice: 192.0, difference: -7.0, trend: 'decreasing', prediction: 'Reduced feed cost and higher poultry farm turnouts easing live wholesale prices.' }
-  ]);
+  const [commodities, setCommodities] = useState<MarketCommodity[]>([]);
+  const [commoditiesLoading, setCommoditiesLoading] = useState(true);
+
+  // Sort control for market table
+  const [marketSortBy, setMarketSortBy] = useState<'yesterday' | 'week' | 'month'>('yesterday');
 
   // Market History raw logs states
   const [showAllHistory, setShowAllHistory] = useState(false);
@@ -197,56 +199,75 @@ export const AIIntelligence: React.FC = () => {
   const [historyPages, setHistoryPages] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Sync real commodities from database predictions on mount
+  // Fetch ALL commodities from daily-comparison endpoint with daily localStorage cache
   useEffect(() => {
-    const fetchRealCommodities = async () => {
+    const CACHE_KEY = 'sf_market_daily_comparison';
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const loadFromCache = (): MarketCommodity[] | null => {
       try {
-        const res = await fetch(`${API_BASE_URL}/market-prices/predictions`);
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.date === todayStr && parsed.data && parsed.data.length > 0) {
+            return parsed.data;
+          }
+        }
+      } catch {}
+      return null;
+    };
+
+    const saveToCache = (data: MarketCommodity[]) => {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ date: todayStr, data }));
+      } catch {}
+    };
+
+    const fetchDailyComparison = async () => {
+      // Check cache first
+      const cached = loadFromCache();
+      if (cached) {
+        setCommodities(cached);
+        setCommoditiesLoading(false);
+        return;
+      }
+
+      setCommoditiesLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/market-prices/daily-comparison`);
         if (res.ok) {
           const result = await res.json();
-          const list = result.predictions || [];
+          const list = result.commodities || [];
           if (list.length > 0) {
-            const mapped = list.map((item: any, idx: number) => {
-              const todayPrice = item.latest_price;
-              const trendDirection = item.trend;
-              let yesterdayPrice = todayPrice;
-              
-              if (trendDirection === 'up') {
-                yesterdayPrice = Math.max(1, todayPrice - (todayPrice * 0.05));
-              } else if (trendDirection === 'down') {
-                yesterdayPrice = todayPrice + (todayPrice * 0.05);
-              }
-              
-              yesterdayPrice = Math.round(yesterdayPrice * 100) / 100;
-              const diff = Math.round((todayPrice - yesterdayPrice) * 100) / 100;
-              
-              let predictionText = `Prophet predicts price will hold stable around Rs. ${item.forecast_7d}/kg.`;
-              if (trendDirection === 'up') {
-                predictionText = `Prophet predicts price surge to Rs. ${item.forecast_7d}/kg (+${Math.round((item.forecast_7d - todayPrice)/todayPrice*100)}%) due to wholesale constraints.`;
-              } else if (trendDirection === 'down') {
-                predictionText = `Model predicts price drop to Rs. ${item.forecast_7d}/kg (-${Math.round((todayPrice - item.forecast_7d)/todayPrice*100)}%) on fresh arrivals.`;
-              }
-
-              return {
-                id: `comm_${idx}`,
-                name: `${item.commodity} (${item.variety})`,
-                unit: item.commodity.toLowerCase().includes('avocados') ? 'piece' : (item.commodity.toLowerCase().includes('cream') ? 'L' : 'kg'),
-                todayPrice: todayPrice,
-                yesterdayPrice: yesterdayPrice,
-                difference: diff,
-                trend: trendDirection === 'up' ? 'increasing' : (trendDirection === 'down' ? 'decreasing' : 'stable'),
-                prediction: predictionText
-              };
-            });
+            const mapped: MarketCommodity[] = list.map((item: any, idx: number) => ({
+              id: `comm_${idx}`,
+              name: `${item.commodity} (${item.variety} - ${item.market})`,
+              unit: item.unit || 'kg',
+              todayPrice: item.today_price ?? 0,
+              yesterdayPrice: item.yesterday_price ?? 0,
+              difference: item.diff_yesterday ?? 0,
+              weekAgoPrice: item.week_ago_price,
+              monthAgoPrice: item.month_ago_price,
+              diffWeek: item.diff_week,
+              diffMonth: item.diff_month,
+              pctYesterday: item.pct_yesterday,
+              pctWeek: item.pct_week,
+              pctMonth: item.pct_month,
+              trend: item.trend as 'increasing' | 'decreasing' | 'stable',
+              prediction: item.prediction || ''
+            }));
             setCommodities(mapped);
+            saveToCache(mapped);
           }
         }
       } catch (err) {
-        console.error("Failed to load real market commodities: ", err);
+        console.error('Failed to load daily market comparison:', err);
+      } finally {
+        setCommoditiesLoading(false);
       }
     };
-    
-    fetchRealCommodities();
+
+    fetchDailyComparison();
   }, []);
 
   // Reset page when search term changes
@@ -380,7 +401,7 @@ export const AIIntelligence: React.FC = () => {
     }, 1000);
   };
 
-  // Filter Market Commodities
+  // Filter & Sort Market Commodities
   const filteredCommodities = commodities.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
@@ -388,6 +409,13 @@ export const AIIntelligence: React.FC = () => {
     if (marketTab === 'decreasing') return c.trend === 'decreasing';
     if (marketTab === 'stable') return c.trend === 'stable';
     return true;
+  }).sort((a, b) => {
+    const getVal = (c: MarketCommodity) => {
+      if (marketSortBy === 'week') return Math.abs(c.diffWeek ?? 0);
+      if (marketSortBy === 'month') return Math.abs(c.diffMonth ?? 0);
+      return Math.abs(c.difference ?? 0);
+    };
+    return getVal(b) - getVal(a);
   });
 
   // Filter Suppliers
@@ -779,6 +807,22 @@ export const AIIntelligence: React.FC = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Sort selector */}
+                  {!showAllHistory && (
+                    <div className="flex items-center gap-xs ml-sm bg-surface-container-low px-2 py-0.5 rounded-lg border border-outline-variant/40">
+                      <span className="text-[10px] text-on-surface-variant font-bold">Sort by:</span>
+                      <select
+                        value={marketSortBy}
+                        onChange={(e) => setMarketSortBy(e.target.value as any)}
+                        className="bg-transparent text-on-surface-variant text-[10px] font-bold focus:outline-none cursor-pointer py-0.5"
+                      >
+                        <option value="yesterday">Daily Volatility (1d)</option>
+                        <option value="week">Weekly Volatility (7d)</option>
+                        <option value="month">Monthly Volatility (30d)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -859,42 +903,70 @@ export const AIIntelligence: React.FC = () => {
                       <tr>
                         <th className="px-lg py-3 font-semibold">Commodity</th>
                         <th className="px-lg py-3 font-semibold text-right">Today's Price</th>
-                        <th className="px-lg py-3 font-semibold text-right">Yesterday's Price</th>
-                        <th className="px-lg py-3 font-semibold text-right">Difference</th>
+                        <th className="px-lg py-3 font-semibold text-right">vs Yesterday</th>
+                        <th className="px-lg py-3 font-semibold text-right">vs 1 Week Ago</th>
+                        <th className="px-lg py-3 font-semibold text-right">vs 1 Month Ago</th>
                         <th className="px-lg py-3 font-semibold text-center">Trend</th>
                         <th className="px-lg py-3 font-semibold">AI Prediction Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-outline-variant/10 text-xs">
-                      {filteredCommodities.map((c) => (
-                        <tr key={c.id} className="hover:bg-surface-container-low/40 transition-colors">
-                          <td className="px-lg py-3.5 font-semibold text-on-surface">{c.name} <span className="text-[10px] text-outline font-normal">({c.unit})</span></td>
-                          <td className="px-lg py-3.5 text-right font-bold text-on-surface">₹{c.todayPrice}</td>
-                          <td className="px-lg py-3.5 text-right text-on-surface-variant">₹{c.yesterdayPrice}</td>
-                          <td className="px-lg py-3.5 text-right">
-                            <span className={`font-bold ${
-                              c.trend === 'increasing' ? 'text-tertiary' : 
-                              c.trend === 'decreasing' ? 'text-primary' : 
-                              'text-on-surface-variant'
-                            }`}>
-                              {c.difference > 0 ? `+₹${c.difference}` : c.difference < 0 ? `-₹${Math.abs(c.difference)}` : '₹0'}
-                            </span>
-                          </td>
-                          <td className="px-lg py-3.5 text-center">
-                            <span className={`inline-flex items-center justify-center font-black text-sm w-6 h-6 rounded-full ${
-                              c.trend === 'increasing' ? 'text-tertiary bg-tertiary/10 border border-tertiary/20' : 
-                              c.trend === 'decreasing' ? 'text-primary bg-primary/10 border border-primary/20' : 
-                              'text-outline bg-surface-container-highest'
-                            }`}>
-                              {c.trend === 'increasing' ? '↑' : c.trend === 'decreasing' ? '↓' : '→'}
-                            </span>
-                          </td>
-                          <td className="px-lg py-3.5 text-on-surface-variant font-medium leading-tight max-w-[300px] truncate hover:whitespace-normal transition-all" title={c.prediction}>{c.prediction}</td>
-                        </tr>
-                      ))}
+                      {filteredCommodities.map((c) => {
+                        const renderDiff = (diff: number | null, pct: number | null, prevPrice: number | null) => {
+                          if (prevPrice === null || prevPrice === undefined || prevPrice === 0) {
+                            return <span className="text-outline font-normal">N/A</span>;
+                          }
+                          const absDiff = Math.abs(diff ?? 0);
+                          const formattedPct = pct ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : '0.0%';
+                          if (diff && diff > 0.05) {
+                            return (
+                              <div className="text-right">
+                                <div className="font-semibold text-on-surface">₹{prevPrice.toFixed(2)}</div>
+                                <div className="text-[10px] font-bold text-tertiary">+₹{absDiff.toFixed(2)} ({formattedPct})</div>
+                              </div>
+                            );
+                          } else if (diff && diff < -0.05) {
+                            return (
+                              <div className="text-right">
+                                <div className="font-semibold text-on-surface">₹{prevPrice.toFixed(2)}</div>
+                                <div className="text-[10px] font-bold text-primary">-₹{absDiff.toFixed(2)} ({formattedPct})</div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="text-right">
+                              <div className="font-semibold text-on-surface">₹{prevPrice.toFixed(2)}</div>
+                              <div className="text-[10px] font-medium text-on-surface-variant">₹0.00 (0.0%)</div>
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <tr key={c.id} className="hover:bg-surface-container-low/40 transition-colors">
+                            <td className="px-lg py-3.5 font-semibold text-on-surface">
+                              <div>{c.name}</div>
+                              <span className="text-[10px] text-outline font-normal">Per {c.unit}</span>
+                            </td>
+                            <td className="px-lg py-3.5 text-right font-bold text-on-surface text-sm">₹{c.todayPrice.toFixed(2)}</td>
+                            <td className="px-lg py-3.5 text-right">{renderDiff(c.difference, c.pctYesterday, c.yesterdayPrice)}</td>
+                            <td className="px-lg py-3.5 text-right">{renderDiff(c.diffWeek, c.pctWeek, c.weekAgoPrice)}</td>
+                            <td className="px-lg py-3.5 text-right">{renderDiff(c.diffMonth, c.pctMonth, c.monthAgoPrice)}</td>
+                            <td className="px-lg py-3.5 text-center">
+                              <span className={`inline-flex items-center justify-center font-black text-sm w-6 h-6 rounded-full ${
+                                c.trend === 'increasing' ? 'text-tertiary bg-tertiary/10 border border-tertiary/20' : 
+                                c.trend === 'decreasing' ? 'text-primary bg-primary/10 border border-primary/20' : 
+                                'text-outline bg-surface-container-highest'
+                              }`}>
+                                {c.trend === 'increasing' ? '↑' : c.trend === 'decreasing' ? '↓' : '→'}
+                              </span>
+                            </td>
+                            <td className="px-lg py-3.5 text-on-surface-variant font-medium leading-tight max-w-[280px] truncate hover:whitespace-normal transition-all" title={c.prediction}>{c.prediction}</td>
+                          </tr>
+                        );
+                      })}
                       {filteredCommodities.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant">No commodity matching your search query was found.</td>
+                          <td colSpan={7} className="px-lg py-12 text-center text-on-surface-variant">No commodity matching your search query was found.</td>
                         </tr>
                       )}
                     </tbody>

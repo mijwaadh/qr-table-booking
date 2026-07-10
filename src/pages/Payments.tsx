@@ -238,7 +238,7 @@ export const Payments: React.FC = () => {
                   )}
                   <h3 className="font-headline-sm text-headline-sm text-primary mb-xs font-bold text-lg">{table.name}</h3>
                   <p className="font-label-sm text-label-sm text-on-surface-variant mb-md text-xs">
-                    {table.seats} Guests • {table.elapsedMinutes || 30}m seated
+                    {table.seats} Guests • {(table.elapsedMinutes ?? 0)}m seated
                   </p>
                   <div className="flex justify-between items-end">
                     <div>

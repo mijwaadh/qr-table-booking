@@ -273,7 +273,12 @@ export const Tables: React.FC = () => {
                   className={`${cardBg} ${borderRing} rounded-xl p-3 min-h-[84px] flex flex-col justify-between cursor-pointer transition-all hover:opacity-95 active:scale-98 font-sans`}
                 >
                   <div className="flex justify-between items-start gap-1">
-                    <span className="font-medium text-xs truncate leading-snug">{customName}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs truncate leading-snug">{table.name}</span>
+                      {customName !== table.name && (
+                        <span className="text-[9px] font-normal opacity-75 truncate leading-tight">{customName}</span>
+                      )}
+                    </div>
                     {isBilled && (
                       <span className="text-[10px] font-normal bg-white/15 border border-white/20 px-1.5 py-0.5 rounded text-gray-100 shrink-0">
                         Bill #{table.id.replace(/^T0?/, '') || 6}
@@ -298,7 +303,7 @@ export const Tables: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <span className="text-[11px] font-normal opacity-85">{table.elapsedMinutes || 20}m</span>
+                        <span className="text-[11px] font-normal opacity-85">{(table.elapsedMinutes ?? 0)}m</span>
                         <span className="font-semibold text-xs">₹{(table.amount || 0).toFixed(2)}</span>
                       </>
                     )}
@@ -390,7 +395,7 @@ export const Tables: React.FC = () => {
                     <div key={idx} className="px-4 py-2.5 grid grid-cols-12 text-xs items-center hover:bg-gray-50/70 transition-colors">
                       <span className="col-span-7 font-normal text-gray-800 truncate pr-2">{item.menuItem.name}</span>
                       <span className="col-span-2 text-center text-gray-600 font-normal">{item.quantity}</span>
-                      <span className="col-span-3 text-right font-medium text-gray-800">{(item.menuItem.price * item.quantity).toFixed(0)}</span>
+                      <span className="col-span-3 text-right font-medium text-gray-800">{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                   {displayItems.length === 0 && (
@@ -496,7 +501,7 @@ export const Tables: React.FC = () => {
                   {localStorage.getItem(`sf_table_name_${activeTableModal.id}`) || activeTableModal.name} ({activeTableModal.id})
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5 font-normal">
-                  Status: <span className="font-medium text-slate-700">{activeTableModal.status}</span> • Seated: {activeTableModal.elapsedMinutes || 20} mins ago
+                  Status: <span className="font-medium text-slate-700">{activeTableModal.status}</span> • Seated: {activeTableModal.elapsedMinutes ?? 0} mins ago
                 </p>
               </div>
               <button 

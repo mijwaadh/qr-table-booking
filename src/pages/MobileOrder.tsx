@@ -150,7 +150,6 @@ export const MobileOrder: React.FC = () => {
       }
       return [...prev, { menuItem: item, quantity: 1 }];
     });
-    triggerToast(`Added ${item.name} to cart`);
   };
 
   const handleDecrementQuantity = (itemId: string) => {

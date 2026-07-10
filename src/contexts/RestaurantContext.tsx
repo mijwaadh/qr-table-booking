@@ -50,7 +50,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const data: Table[] = await resTables.json();
         setTables(data.map(t => ({
           ...t,
-          elapsedMinutes: t.seatedTime ? calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0) : t.elapsedMinutes
+          elapsedMinutes: t.seatedTime && t.status === 'OCCUPIED'
+            ? calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0)
+            : t.elapsedMinutes
         })));
       }
       if (resMenu.ok) {
@@ -82,7 +84,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return calc !== o.elapsedMinutes ? { ...o, elapsedMinutes: calc } : o;
       }));
       setTables(prev => prev.map(t => {
-        if (t.status !== 'OCCUPIED' && t.status !== 'PAYMENT_PENDING' || !t.seatedTime) return t;
+        if (t.status !== 'OCCUPIED' || !t.seatedTime) return t;
         const calc = calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0);
         return calc !== t.elapsedMinutes ? { ...t, elapsedMinutes: calc } : t;
       }));
