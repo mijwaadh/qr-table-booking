@@ -31,10 +31,7 @@ export const Tables: React.FC = () => {
   const [tablePaidAmount, setTablePaidAmount] = useState<number | ''>(1000);
 
   // Side Drawer / Inspector state (matching user screenshot)
-  const [activeTableForSide, setActiveTableForSide] = useState<Table | null>(() => {
-    // Default to Table3 if available to show immediate rich side panel
-    return tables.find(t => t.id === 'T03' || t.name === 'Table3') || null;
-  });
+  const [activeTableForSide, setActiveTableForSide] = useState<Table | null>(null);
   const [sideTab, setSideTab] = useState<'KOT' | 'BILLING'>('BILLING');
   const [isEBillChecked, setIsEBillChecked] = useState(false);
 
@@ -75,9 +72,11 @@ export const Tables: React.FC = () => {
 
   const handleCardClick = (table: Table) => {
     playItemTapSound();
-    setActiveTableForSide(table);
     if (table.status !== 'AVAILABLE') {
+      setActiveTableForSide(table);
       setTablePaidAmount(Math.max(1000, Math.ceil((table.amount || 400) / 100) * 100));
+    } else {
+      setActiveTableForSide(null);
     }
   };
 
