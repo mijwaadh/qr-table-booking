@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRestaurant } from '../contexts/RestaurantContext';
 import TopNavBar from '../components/TopNavBar';
 import { 
-  DollarSign, 
+  IndianRupee, 
   TrendingUp, 
   Receipt, 
   Table2, 
@@ -22,7 +22,7 @@ export const Dashboard: React.FC = () => {
   const [selectedTableId, setSelectedTableId] = useState('T04');
 
   // Calculate metrics dynamically from live orders
-  const activeOrdersCount = orders.filter(o => o.status !== 'COMPLETED').length;
+  const activeOrdersCount = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED').length;
   const occupiedTablesCount = tables.filter(t => t.status === 'OCCUPIED' || t.status === 'PAYMENT_PENDING').length;
   const totalTablesCount = tables.length;
   const completedTodayCount = orders.filter(o => o.status === 'COMPLETED').length;
@@ -207,10 +207,10 @@ export const Dashboard: React.FC = () => {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-label-md text-on-surface-variant mb-xs">Today's Sales</p>
-                  <h3 className="font-headline-md text-headline-md">${todaysSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+                  <h3 className="font-headline-md text-headline-md">₹{todaysSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
                 </div>
                 <div className="p-sm rounded-lg bg-primary-container/10 text-primary">
-                  <DollarSign className="w-5 h-5" />
+                  <IndianRupee className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-md flex items-center gap-sm">
@@ -308,7 +308,7 @@ export const Dashboard: React.FC = () => {
                       <tr key={order.id} className="hover:bg-surface-container-low transition-colors duration-150">
                         <td className="px-lg py-md font-semibold">{order.tableId}</td>
                         <td className="px-lg py-md text-on-surface-variant">#{order.id}</td>
-                        <td className="px-lg py-md">${order.amount.toFixed(2)}</td>
+                        <td className="px-lg py-md">₹{order.amount.toFixed(2)}</td>
                         <td className="px-lg py-md">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                             order.status === 'PREPARING' ? 'status-preparing' : 

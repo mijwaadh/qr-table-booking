@@ -11,6 +11,8 @@ import Reports from './pages/Reports';
 import KDS from './pages/KDS';
 import MobileOrder from './pages/MobileOrder';
 import DemoControl from './pages/DemoControl';
+import AIIntelligence from './pages/AIIntelligence';
+
 
 export const App: React.FC = () => {
   return (
@@ -26,6 +28,7 @@ export const App: React.FC = () => {
         <Route path="billing" element={<Payments />} />
         <Route path="reports" element={<Reports />} />
         <Route path="demo" element={<DemoControl />} />
+        <Route path="ai-intelligence" element={<AIIntelligence />} />
         {/* Fallback settings page just routes to dashboard */}
         <Route path="settings" element={<Navigate to="/" replace />} />
       </Route>

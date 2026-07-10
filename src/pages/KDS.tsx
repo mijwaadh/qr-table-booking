@@ -9,10 +9,9 @@ import {
   Bell, 
   Settings, 
   CheckCircle,
-  Play,
-  Hourglass,
   Check,
-  ChevronLeft
+  ChevronLeft,
+  XCircle
 } from 'lucide-react';
 
 
@@ -30,7 +29,7 @@ export const KDS: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const activeKdsOrders = orders.filter(o => o.status !== 'COMPLETED');
+  const activeKdsOrders = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
 
 
   const filteredOrders = activeKdsOrders.filter(order => 
@@ -162,17 +161,15 @@ export const KDS: React.FC = () => {
                 {/* Actions */}
                 <div className="p-md grid grid-cols-2 gap-md bg-surface-container-low border-t border-outline-variant/60">
                   <button 
-                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                    className={`py-3 rounded-xl font-label-md font-semibold text-sm transition-all flex items-center justify-center gap-sm border-2 ${
-                      order.status === 'PREPARING' ? 'bg-secondary-container text-white border-secondary-container' : 'text-on-surface border-outline-variant hover:bg-surface-container-high'
-                    }`}
+                    onClick={() => updateOrderStatus(order.id, 'CANCELLED')}
+                    className="py-3 rounded-xl font-label-md font-semibold text-sm transition-all flex items-center justify-center gap-sm border-2 text-error border-error/30 hover:bg-error/10 hover:border-error active:scale-95"
                   >
-                    {order.status === 'PREPARING' ? <Hourglass className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    <span>{order.status === 'PREPARING' ? 'Preparing' : 'Start Prep'}</span>
+                    <XCircle className="w-4 h-4" />
+                    <span>Cancel</span>
                   </button>
                   <button 
                     onClick={() => updateOrderStatus(order.id, 'READY')}
-                    className="py-3 rounded-xl font-label-md bg-primary text-on-primary hover:bg-primary/95 transition-all flex items-center justify-center gap-sm shadow-sm font-bold text-sm"
+                    className="py-3 rounded-xl font-label-md bg-primary text-on-primary hover:bg-primary/95 transition-all flex items-center justify-center gap-sm shadow-sm font-bold text-sm active:scale-95"
                   >
                     <CheckCircle className="w-4 h-4" />
                     <span>Ready</span>

@@ -4,6 +4,24 @@ import psycopg
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+# Load .env file manually if exists
+def load_dotenv():
+    # Try backend directory first, then root directory
+    for base_dir in [os.path.dirname(os.path.abspath(__file__)), os.getcwd()]:
+        env_path = os.path.join(base_dir, ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        parts = line.split("=", 1)
+                        key = parts[0].strip()
+                        val = parts[1].strip().strip('"').strip("'")
+                        os.environ[key] = val
+            break
+
+load_dotenv()
+
 raw_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/serveflow_db")
 DATABASE_URL = raw_url.strip().strip('"').strip("'").strip() if raw_url else ""
 

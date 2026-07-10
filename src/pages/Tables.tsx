@@ -267,7 +267,7 @@ export const Tables: React.FC = () => {
                     {table.amount && (
                       <div className="flex items-center gap-xs font-semibold">
                         <Receipt className="w-4 h-4" />
-                        <span>${table.amount.toFixed(2)}</span>
+                        <span>₹{table.amount.toFixed(2)}</span>
                       </div>
                     )}
                   </div>

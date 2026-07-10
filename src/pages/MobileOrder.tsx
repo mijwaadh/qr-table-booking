@@ -86,7 +86,7 @@ export const MobileOrder: React.FC = () => {
   const cartTotal = cartSubtotal + cartServiceCharge;
 
   // Active Table Orders and Calculations
-  const activeTableOrders = orders.filter(o => o.tableId === tableId && o.status !== 'COMPLETED');
+  const activeTableOrders = orders.filter(o => o.tableId === tableId && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
   const activeTableSubtotal = activeTableOrders.reduce((sum, o) => sum + o.amount, 0);
   const activeTableGst = activeTableSubtotal * 0.05;
   const activeTableService = activeTableSubtotal > 0 ? 5.00 : 0.0;
@@ -276,7 +276,7 @@ export const MobileOrder: React.FC = () => {
                   <div>
                     <div className="flex justify-between items-start gap-xs">
                       <h3 className="font-headline-sm text-sm text-on-surface font-bold truncate pr-1" title={item.name}>{item.name}</h3>
-                      <span className="font-label-md text-sm text-primary font-bold shrink-0">${item.price.toFixed(2)}</span>
+                      <span className="font-label-md text-sm text-primary font-bold shrink-0">₹{item.price.toFixed(2)}</span>
                     </div>
                     <p className="font-body-sm text-xs text-on-surface-variant mt-0.5 line-clamp-2">{item.description}</p>
                   </div>
@@ -337,7 +337,7 @@ export const MobileOrder: React.FC = () => {
                   <p className="font-body-sm text-[10px] opacity-80 text-white/90 mt-0.5">{cartItemCount} items selected</p>
                 </div>
               </div>
-              <p className="font-headline-sm text-sm font-bold text-white">${cartSubtotal.toFixed(2)}</p>
+              <p className="font-headline-sm text-sm font-bold text-white">₹{cartSubtotal.toFixed(2)}</p>
             </button>
           </div>
         )}
@@ -399,7 +399,7 @@ export const MobileOrder: React.FC = () => {
                           <span className="w-8 h-8 flex items-center justify-center bg-surface-container rounded-lg font-bold text-xs">{item.quantity}x</span>
                           <span className="font-body-md text-on-surface font-semibold">{item.menuItem.name}</span>
                         </div>
-                        <span className="font-label-md text-sm font-bold">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                        <span className="font-label-md text-sm font-bold">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -409,15 +409,15 @@ export const MobileOrder: React.FC = () => {
                   <div className="space-y-sm">
                     <div className="flex justify-between text-on-surface-variant text-xs">
                       <span>Subtotal</span>
-                      <span>${cartSubtotal.toFixed(2)}</span>
+                      <span>₹{cartSubtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-on-surface-variant text-xs">
                       <span>Service Charge (10%)</span>
-                      <span>${cartServiceCharge.toFixed(2)}</span>
+                      <span>₹{cartServiceCharge.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-on-surface font-headline-sm pt-sm border-t border-outline-variant font-bold text-base">
                       <span>Total</span>
-                      <span className="text-primary">${cartTotal.toFixed(2)}</span>
+                      <span className="text-primary">₹{cartTotal.toFixed(2)}</span>
                     </div>
                   </div>
                   <button 
@@ -553,7 +553,7 @@ export const MobileOrder: React.FC = () => {
                         order.items.map((oi, idx) => (
                           <div key={`${order.id}-${idx}`} className="flex justify-between text-sm">
                             <span className="text-on-surface-variant">{oi.quantity}x {oi.menuItem.name}</span>
-                            <span className="font-semibold text-on-surface">${(oi.menuItem.price * oi.quantity).toFixed(2)}</span>
+                            <span className="font-semibold text-on-surface">₹{(oi.menuItem.price * oi.quantity).toFixed(2)}</span>
                           </div>
                         ))
                       )}
@@ -562,19 +562,19 @@ export const MobileOrder: React.FC = () => {
                     <div className="space-y-sm">
                       <div className="flex justify-between text-xs text-on-surface-variant">
                         <span>Subtotal</span>
-                        <span>${activeTableSubtotal.toFixed(2)}</span>
+                        <span>₹{activeTableSubtotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-xs text-on-surface-variant">
                         <span>GST (5%)</span>
-                        <span>${activeTableGst.toFixed(2)}</span>
+                        <span>₹{activeTableGst.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-xs text-on-surface-variant">
                         <span>Service Charge</span>
-                        <span>${activeTableService.toFixed(2)}</span>
+                        <span>₹{activeTableService.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between font-bold text-base text-on-surface pt-sm border-t border-outline-variant/40">
                         <span>Grand Total</span>
-                        <span className="text-primary">${activeTableTotal.toFixed(2)}</span>
+                        <span className="text-primary">₹{activeTableTotal.toFixed(2)}</span>
                       </div>
                     </div>
 

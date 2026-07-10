@@ -38,6 +38,10 @@ manager = ConnectionManager()
 
 app = FastAPI(title="ServeFlow Restaurant Suite API")
 
+# Mount Prisma routes
+from prisma_routes import router as prisma_router
+app.include_router(prisma_router)
+
 @app.websocket("/ws")
 @app.websocket("/")
 @app.websocket("/api/ws")
@@ -210,6 +214,14 @@ def startup_event():
             db = next(get_db())
             seed_initial_data(db)
             print("[Startup] Database schema and initial data loaded successfully.")
+            
+            # Start daily market price background scheduler
+            try:
+                from scheduler import scheduler
+                scheduler.start()
+            except Exception as sched_err:
+                print(f"[Startup] Failed to start market price background scheduler: {sched_err}")
+                
             break
         except Exception as e:
             err_msg = str(e)
@@ -230,6 +242,25 @@ def startup_event():
                 print("=" * 80)
             else:
                 time.sleep(3)
+
+@app.on_event("startup")
+async def startup_prisma():
+    try:
+        from prisma_routes import prisma
+        await prisma.connect()
+        print("[Startup] Connected to Prisma Client successfully.")
+    except Exception as prisma_err:
+        print(f"[Startup] Failed to connect Prisma Client: {prisma_err}")
+
+@app.on_event("shutdown")
+async def shutdown_prisma():
+    try:
+        from prisma_routes import prisma
+        if prisma.is_connected():
+            await prisma.disconnect()
+            print("[Shutdown] Disconnected from Prisma Client successfully.")
+    except Exception as prisma_err:
+        print(f"[Shutdown] Failed to disconnect Prisma Client: {prisma_err}")
 
 # --- TABLES APIS ---
 @app.get("/api/tables", response_model=List[schemas.TableSchema])
@@ -422,10 +453,29 @@ async def update_order_status(order_id: str, payload: Dict[str, str], db: Sessio
         
     if "status" in payload:
         new_status = payload["status"]
+        old_status = db_order.status
         db_order.status = new_status
         
+        # If order is cancelled and wasn't already cancelled/completed, deduct amount from table
+        if new_status == "CANCELLED" and old_status not in ["CANCELLED", "COMPLETED"]:
+            db_table = db.query(models.Table).filter(models.Table.id == db_order.tableId).first()
+            if db_table:
+                db_table.amount = max(0.0, round((db_table.amount or 0.0) - db_order.amount, 2))
+                # Check if there are other active orders for this table
+                active_orders = db.query(models.Order).filter(
+                    models.Order.tableId == db_order.tableId,
+                    models.Order.status.in_(["PENDING", "PREPARING", "READY"])
+                ).count()
+                if active_orders == 0 and (db_table.amount <= 0.01 or db_table.amount is None):
+                    db_table.status = "AVAILABLE"
+                    db_table.amount = None
+                    db_table.seatedTime = None
+                    db_table.elapsedMinutes = None
+                elif active_orders == 0 and db_table.amount > 0:
+                    db_table.status = "PAYMENT_PENDING"
+
         # If the order is served/completed, let's update table status to PAYMENT_PENDING if no other orders are preparing/pending
-        if new_status == "COMPLETED":
+        elif new_status == "COMPLETED":
             table_id = db_order.tableId
             # Check if there are other pending/preparing orders for this table
             active_orders = db.query(models.Order).filter(
@@ -473,7 +523,7 @@ async def settle_bill(payload: schemas.PaymentCreate, db: Session = Depends(get_
     # Get active orders of this table to mark completed
     table_orders = db.query(models.Order).filter(
         models.Order.tableId == clean_tid,
-        models.Order.status != "COMPLETED"
+        models.Order.status.notin_(["COMPLETED", "CANCELLED"])
     ).all()
     
     for order in table_orders:
@@ -812,3 +862,20 @@ async def demo_simulate_sales(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Sales simulation failed: {str(e)}")
+
+# --- MARKET PRICES SYNC APIS ---
+@app.post("/api/market-prices/sync")
+def trigger_market_sync():
+    from scheduler import scheduler
+    result = scheduler.trigger_sync()
+    return result
+
+@app.get("/api/market-prices/sync/status")
+def get_market_sync_status():
+    from scheduler import scheduler
+    return {
+        "is_alive": scheduler._thread.is_alive() if scheduler._thread else False,
+        "last_run": scheduler.last_run_time.isoformat() if scheduler.last_run_time else None,
+        "next_run": scheduler.next_run_time.isoformat() if scheduler.next_run_time else None,
+        "runs_count": scheduler.runs_count
+    }

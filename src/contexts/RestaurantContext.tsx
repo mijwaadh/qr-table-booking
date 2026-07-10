@@ -253,7 +253,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const settleBill = async (tableId: string, method: string = 'Cash') => {
-    const tableOrders = orders.filter(o => o.tableId === tableId && o.status !== 'COMPLETED');
+    const tableOrders = orders.filter(o => o.tableId === tableId && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
     const subtotal = tableOrders.reduce((sum, o) => sum + o.amount, 0);
     const gst = Math.round((subtotal * 0.05) * 100) / 100;
     const serviceCharge = Math.round((subtotal * 0.10) * 100) / 100;

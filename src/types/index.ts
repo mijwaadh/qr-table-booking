@@ -23,7 +23,7 @@ export interface Order {
   tableId: string;
   items: OrderItem[];
   amount: number;
-  status: 'PENDING' | 'PREPARING' | 'READY' | 'COMPLETED';
+  status: 'PENDING' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
   time: string;
   elapsedMinutes: number;
   allergyAlert?: string;

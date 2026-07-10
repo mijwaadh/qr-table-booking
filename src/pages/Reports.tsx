@@ -18,7 +18,7 @@ import { useRestaurant } from '../contexts/RestaurantContext';
 import { 
   TrendingUp, 
   ShoppingBag, 
-  DollarSign, 
+  IndianRupee, 
   Calendar,
   Sparkles,
   TrendingDown,
@@ -99,7 +99,7 @@ export const Reports: React.FC = () => {
       y: { 
         beginAtZero: true, 
         grid: { color: '#f3f4f6' },
-        ticks: { callback: (value: any) => '$' + value / 1000 + 'k' }
+        ticks: { callback: (value: any) => '₹' + value / 1000 + 'k' }
       },
       x: { grid: { display: false } }
     }
@@ -212,7 +212,7 @@ export const Reports: React.FC = () => {
               <TrendingUp className="text-primary w-5 h-5" />
             </div>
             <p className="font-headline-md text-headline-md font-bold text-on-surface">
-              ${stats?.todaySales ? stats.todaySales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+              ₹{stats?.todaySales ? stats.todaySales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
             </p>
             <p className="text-xs text-primary font-semibold mt-sm flex items-center gap-1">
               +12.5% <span className="font-normal text-on-surface-variant">vs last period</span>
@@ -233,10 +233,10 @@ export const Reports: React.FC = () => {
           <div className="bg-white p-lg rounded-xl border border-outline-variant shadow-sm transition-all hover:-translate-y-1">
             <div className="flex justify-between items-start mb-sm">
               <p className="font-label-sm text-label-sm text-on-surface-variant text-xs font-semibold">AVG ORDER VALUE</p>
-              <DollarSign className="text-secondary w-5 h-5" />
+              <IndianRupee className="text-secondary w-5 h-5" />
             </div>
             <p className="font-headline-md text-headline-md font-bold text-on-surface">
-              ${stats?.averageOrderValue ? stats.averageOrderValue.toFixed(2) : '0.00'}
+              ₹{stats?.averageOrderValue ? stats.averageOrderValue.toFixed(2) : '0.00'}
             </p>
             <p className="text-xs text-tertiary font-semibold mt-sm flex items-center gap-1">
               -1.2% <span className="font-normal text-on-surface-variant">vs last period</span>
@@ -273,7 +273,7 @@ export const Reports: React.FC = () => {
               <Doughnut data={categoryDonutData} options={categoryDonutOptions} />
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
                 <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Total Sales</p>
-                <p className="font-headline-sm text-headline-sm font-bold text-base">${stats?.todaySales ? (stats.todaySales / 1000).toFixed(1) + 'k' : '0.0k'}</p>
+                <p className="font-headline-sm text-headline-sm font-bold text-base">₹{stats?.todaySales ? (stats.todaySales / 1000).toFixed(1) + 'k' : '0.0k'}</p>
               </div>
             </div>
           </div>
@@ -317,7 +317,7 @@ export const Reports: React.FC = () => {
                         }`}>{item.category}</span>
                       </td>
                       <td className="px-lg py-md font-body-md text-on-surface-variant">{item.orders}</td>
-                      <td className="px-lg py-md font-body-md text-on-surface font-bold text-right">${item.revenue.toLocaleString()}</td>
+                      <td className="px-lg py-md font-body-md text-on-surface font-bold text-right">₹{item.revenue.toLocaleString()}</td>
                       <td className="px-lg py-md">
                         {item.trend === 'up' ? (
                           <TrendingUp className="text-primary w-4 h-4" />

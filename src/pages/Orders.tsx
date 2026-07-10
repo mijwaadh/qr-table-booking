@@ -99,7 +99,7 @@ export const Orders: React.FC = () => {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-body-md text-sm">
                           <span className="text-on-surface">{item.quantity}x {item.menuItem.name}</span>
-                          <span className="text-outline">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                          <span className="text-outline">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -142,7 +142,7 @@ export const Orders: React.FC = () => {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-body-md text-sm">
                           <span className="text-on-surface">{item.quantity}x {item.menuItem.name}</span>
-                          <span className="text-outline">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                          <span className="text-outline">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                         </div>
                       ))}
                       {order.allergyAlert && (
@@ -194,7 +194,7 @@ export const Orders: React.FC = () => {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-body-md text-sm opacity-60">
                           <span className="text-on-surface">{item.quantity}x {item.menuItem.name}</span>
-                          <span className="text-outline">${(item.menuItem.price * item.quantity).toFixed(2)}</span>
+                          <span className="text-outline">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -242,7 +242,7 @@ export const Orders: React.FC = () => {
                 {completedOrders.map(order => (
                   <div 
                     key={order.id}
-                    onClick={() => alert(`Order details:\nID: #${order.id}\nTable: ${order.tableId}\nTotal: $${order.amount.toFixed(2)}`)}
+                    onClick={() => alert(`Order details:\nID: #${order.id}\nTable: ${order.tableId}\nTotal: ₹${order.amount.toFixed(2)}`)}
                     className="flex items-center gap-md p-sm hover:bg-surface-container-highest rounded-lg transition-colors cursor-pointer group"
                   >
                     <div className="w-10 h-10 rounded-lg bg-primary-container/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shrink-0">
@@ -258,7 +258,7 @@ export const Orders: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-right shrink-0 ml-xs">
-                      <p className="font-bold text-on-surface text-sm">${order.amount.toFixed(2)}</p>
+                      <p className="font-bold text-on-surface text-sm">₹{order.amount.toFixed(2)}</p>
                       <p className="text-[9px] text-primary uppercase font-bold">Paid</p>
                     </div>
                   </div>

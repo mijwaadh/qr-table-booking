@@ -213,7 +213,7 @@ export const Menu: React.FC = () => {
                 <div className="p-md">
                   <div className="flex justify-between items-start mb-1 gap-sm">
                     <h3 className="font-headline-sm text-on-surface truncate pr-2 font-bold text-base" title={item.name}>{item.name}</h3>
-                    <span className="font-headline-sm text-primary font-bold text-base">${item.price.toFixed(2)}</span>
+                    <span className="font-headline-sm text-primary font-bold text-base">₹{item.price.toFixed(2)}</span>
                   </div>
                   <p className="text-outline text-body-sm line-clamp-2 mb-md text-xs min-h-[32px]">{item.description}</p>
                   

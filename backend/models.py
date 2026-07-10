@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, Date, Numeric, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -83,3 +83,35 @@ class Payment(Base):
     discount = Column(Float, default=0.0)
     total = Column(Float, nullable=False)
     timestamp = Column(String, nullable=False)
+
+class MarketPrice(Base):
+    __tablename__ = "market_prices"
+    
+    id = Column(String, primary_key=True, index=True)
+    commodity = Column(String, nullable=False, index=True)
+    variety = Column(String, nullable=False)
+    state = Column(String, nullable=False, index=True)
+    district = Column(String, nullable=False, index=True)
+    market = Column(String, nullable=False)
+    arrival_date = Column(Date, nullable=False, index=True)
+    min_price = Column(Numeric(12, 2), nullable=False)
+    max_price = Column(Numeric(12, 2), nullable=False)
+    modal_price = Column(Numeric(12, 2), nullable=False)
+    price_per_kg = Column(Numeric(12, 2), nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+class MarketPrediction(Base):
+    __tablename__ = "market_predictions"
+    
+    id = Column(String, primary_key=True, index=True)
+    commodity = Column(String, nullable=False, index=True)
+    variety = Column(String, nullable=False)
+    market = Column(String, nullable=False)
+    prediction_date = Column(Date, nullable=False)
+    forecast_date = Column(Date, nullable=False, index=True)
+    forecast_price = Column(Numeric(12, 2), nullable=False)
+    lower_bound = Column(Numeric(12, 2), nullable=False)
+    upper_bound = Column(Numeric(12, 2), nullable=False)
+    horizon_days = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
