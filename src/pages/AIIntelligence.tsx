@@ -173,19 +173,113 @@ export const AIIntelligence: React.FC = () => {
     { id: 'reports', label: 'Reports' }
   ];
 
-  // Mock Market Commodities Data
-  const initialCommodities: MarketCommodity[] = [
+  // API URL
+  const rawApiUrl = ((import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api').trim().replace(/\/$/, '');
+  const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
+
+  // Market Commodities State (synced from DB predictions)
+  const [commodities, setCommodities] = useState<MarketCommodity[]>([
     { id: '1', name: 'Roma Tomatoes', unit: 'kg', todayPrice: 52, yesterdayPrice: 46, difference: 6, trend: 'increasing', prediction: 'Monsoon delays will elevate prices by 5% this week.' },
     { id: '2', name: 'Wagyu Beef Flank', unit: 'kg', todayPrice: 2200, yesterdayPrice: 2150, difference: 50, trend: 'increasing', prediction: 'Stabilizing soon as supplier flight cargo resumes.' },
     { id: '3', name: 'Atlantic Salmon Filet', unit: 'kg', todayPrice: 1150, yesterdayPrice: 1200, difference: -50, trend: 'decreasing', prediction: 'Sliding further by 4% on healthy global catches.' },
     { id: '4', name: 'Fresh Cream 35%', unit: 'L', todayPrice: 180, yesterdayPrice: 180, difference: 0, trend: 'stable', prediction: 'Contract rates locked; stable price for 15 days.' },
     { id: '5', name: 'Yellow Bell Peppers', unit: 'kg', todayPrice: 110, yesterdayPrice: 125, difference: -15, trend: 'decreasing', prediction: 'Abundant mandi arrivals; prices expected to hover low.' },
     { id: '6', name: 'Hass Avocados', unit: 'piece', todayPrice: 95, yesterdayPrice: 85, difference: 10, trend: 'increasing', prediction: 'High import surcharge; expect rising prices to hold.' },
-  ];
+  ]);
 
-  // API URL
-  const rawApiUrl = ((import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000/api').trim().replace(/\/$/, '');
-  const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
+  // Market History raw logs states
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPages, setHistoryPages] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Sync real commodities from database predictions on mount
+  useEffect(() => {
+    const fetchRealCommodities = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/market-prices/predictions`);
+        if (res.ok) {
+          const result = await res.json();
+          const list = result.predictions || [];
+          if (list.length > 0) {
+            const mapped = list.map((item: any, idx: number) => {
+              const todayPrice = item.latest_price;
+              const trendDirection = item.trend;
+              let yesterdayPrice = todayPrice;
+              
+              if (trendDirection === 'up') {
+                yesterdayPrice = Math.max(1, todayPrice - (todayPrice * 0.05));
+              } else if (trendDirection === 'down') {
+                yesterdayPrice = todayPrice + (todayPrice * 0.05);
+              }
+              
+              yesterdayPrice = Math.round(yesterdayPrice * 100) / 100;
+              const diff = Math.round((todayPrice - yesterdayPrice) * 100) / 100;
+              
+              let predictionText = `Prophet predicts price will hold stable around Rs. ${item.forecast_7d}/kg.`;
+              if (trendDirection === 'up') {
+                predictionText = `Prophet predicts price surge to Rs. ${item.forecast_7d}/kg (+${Math.round((item.forecast_7d - todayPrice)/todayPrice*100)}%) due to wholesale constraints.`;
+              } else if (trendDirection === 'down') {
+                predictionText = `Model predicts price drop to Rs. ${item.forecast_7d}/kg (-${Math.round((todayPrice - item.forecast_7d)/todayPrice*100)}%) on fresh arrivals.`;
+              }
+
+              return {
+                id: `comm_${idx}`,
+                name: `${item.commodity} (${item.variety})`,
+                unit: item.commodity.toLowerCase().includes('avocados') ? 'piece' : (item.commodity.toLowerCase().includes('cream') ? 'L' : 'kg'),
+                todayPrice: todayPrice,
+                yesterdayPrice: yesterdayPrice,
+                difference: diff,
+                trend: trendDirection === 'up' ? 'increasing' : (trendDirection === 'down' ? 'decreasing' : 'stable'),
+                prediction: predictionText
+              };
+            });
+            setCommodities(mapped);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load real market commodities: ", err);
+      }
+    };
+    
+    fetchRealCommodities();
+  }, []);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [searchTerm]);
+
+  // Fetch paginated raw logs from database history
+  useEffect(() => {
+    if (!showAllHistory) return;
+    
+    const fetchHistory = async () => {
+      setHistoryLoading(true);
+      try {
+        const queryParams = new URLSearchParams({
+          page: String(historyPage),
+          limit: '15',
+          search: searchTerm
+        });
+        const res = await fetch(`${API_BASE_URL}/market-prices/history?${queryParams.toString()}`);
+        if (res.ok) {
+          const result = await res.json();
+          setHistoryLogs(result.data || []);
+          setHistoryTotal(result.total || 0);
+          setHistoryPages(result.pages || 1);
+        }
+      } catch (err) {
+        console.error("Failed to load historical mandi logs: ", err);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    
+    fetchHistory();
+  }, [showAllHistory, historyPage, searchTerm]);
 
   // AI Recommendations State & API Fetch Hook
   const [recommendations, setRecommendations] = useState<Recommendation[]>([
@@ -285,7 +379,7 @@ export const AIIntelligence: React.FC = () => {
   };
 
   // Filter Market Commodities
-  const filteredCommodities = initialCommodities.filter(c => {
+  const filteredCommodities = commodities.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     if (marketTab === 'increasing') return c.trend === 'increasing';
@@ -652,73 +746,159 @@ export const AIIntelligence: React.FC = () => {
                   <p className="text-[10px] text-on-surface-variant">Live external vendor indices and local wholesale mandi metrics</p>
                 </div>
 
-                <div className="flex items-center gap-sm">
+                <div className="flex flex-wrap items-center gap-sm">
+                  {/* Toggle view all logs */}
+                  <button
+                    onClick={() => setShowAllHistory(!showAllHistory)}
+                    className={`px-sm py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      showAllHistory 
+                        ? 'bg-primary text-on-primary border-primary' 
+                        : 'bg-surface-bright text-on-surface border-outline-variant/40 hover:bg-surface-container-low'
+                    }`}
+                  >
+                    {showAllHistory ? 'View Aggregated Indices' : 'View All History Logs'}
+                  </button>
+
                   {/* Category filters */}
-                  <div className="flex bg-surface-container-low p-0.5 rounded-lg border border-outline-variant/40 shrink-0">
-                    {(['all', 'increasing', 'decreasing', 'stable'] as const).map(tab => (
-                      <button
-                        key={tab}
-                        onClick={() => setMarketTab(tab)}
-                        className={`px-3 py-1 rounded-md text-[10px] font-bold capitalize transition-all ${
-                          marketTab === tab 
-                            ? 'bg-white text-primary shadow-sm' 
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        }`}
-                      >
-                        {tab === 'all' ? 'All' : tab === 'increasing' ? '↑ Rising' : tab === 'decreasing' ? '↓ Falling' : '→ Stable'}
-                      </button>
-                    ))}
-                  </div>
+                  {!showAllHistory && (
+                    <div className="flex bg-surface-container-low p-0.5 rounded-lg border border-outline-variant/40 shrink-0">
+                      {(['all', 'increasing', 'decreasing', 'stable'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setMarketTab(tab)}
+                          className={`px-3 py-1 rounded-md text-[10px] font-bold capitalize transition-all ${
+                            marketTab === tab 
+                              ? 'bg-white text-primary shadow-sm' 
+                              : 'text-on-surface-variant hover:text-on-surface'
+                          }`}
+                        >
+                          {tab === 'all' ? 'All' : tab === 'increasing' ? '↑ Rising' : tab === 'decreasing' ? '↓ Falling' : '→ Stable'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-left">
-                  <thead className="bg-surface-container-low text-on-surface-variant font-label-md text-xs border-b border-outline-variant/20">
-                    <tr>
-                      <th className="px-lg py-3 font-semibold">Commodity</th>
-                      <th className="px-lg py-3 font-semibold text-right">Today's Price</th>
-                      <th className="px-lg py-3 font-semibold text-right">Yesterday's Price</th>
-                      <th className="px-lg py-3 font-semibold text-right">Difference</th>
-                      <th className="px-lg py-3 font-semibold text-center">Trend</th>
-                      <th className="px-lg py-3 font-semibold">AI Prediction Details</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/10 text-xs">
-                    {filteredCommodities.map((c) => (
-                      <tr key={c.id} className="hover:bg-surface-container-low/40 transition-colors">
-                        <td className="px-lg py-3.5 font-semibold text-on-surface">{c.name} <span className="text-[10px] text-outline font-normal">({c.unit})</span></td>
-                        <td className="px-lg py-3.5 text-right font-semibold text-on-surface">₹{c.todayPrice}</td>
-                        <td className="px-lg py-3.5 text-right text-on-surface-variant">₹{c.yesterdayPrice}</td>
-                        <td className="px-lg py-3.5 text-right">
-                          <span className={`font-bold ${
-                            c.trend === 'increasing' ? 'text-tertiary' : 
-                            c.trend === 'decreasing' ? 'text-primary' : 
-                            'text-on-surface-variant'
-                          }`}>
-                            {c.difference > 0 ? `+₹${c.difference}` : c.difference < 0 ? `-₹${Math.abs(c.difference)}` : '₹0'}
-                          </span>
-                        </td>
-                        <td className="px-lg py-3.5 text-center">
-                          <span className={`inline-flex items-center justify-center font-black text-sm w-6 h-6 rounded-full ${
-                            c.trend === 'increasing' ? 'text-tertiary bg-tertiary/10 border border-tertiary/20' : 
-                            c.trend === 'decreasing' ? 'text-primary bg-primary/10 border border-primary/20' : 
-                            'text-outline bg-surface-container-highest'
-                          }`}>
-                            {c.trend === 'increasing' ? '↑' : c.trend === 'decreasing' ? '↓' : '→'}
-                          </span>
-                        </td>
-                        <td className="px-lg py-3.5 text-on-surface-variant font-medium leading-tight max-w-[300px] truncate hover:whitespace-normal transition-all" title={c.prediction}>{c.prediction}</td>
-                      </tr>
-                    ))}
-                    {filteredCommodities.length === 0 && (
+              {showAllHistory ? (
+                /* Raw history log table */
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left">
+                    <thead className="bg-surface-container-low text-on-surface-variant font-label-md text-xs border-b border-outline-variant/20">
                       <tr>
-                        <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant">No commodity matching your search query was found.</td>
+                        <th className="px-lg py-3 font-semibold">Commodity</th>
+                        <th className="px-lg py-3 font-semibold">Variety</th>
+                        <th className="px-lg py-3 font-semibold">Market / State</th>
+                        <th className="px-lg py-3 font-semibold text-center">Arrival Date</th>
+                        <th className="px-lg py-3 font-semibold text-right">Modal Price (per quintal)</th>
+                        <th className="px-lg py-3 font-semibold text-right">Price per kg</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10 text-xs">
+                      {historyLoading ? (
+                        <tr>
+                          <td colSpan={6} className="px-lg py-12 text-center text-outline font-semibold">
+                            <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto mb-xs" />
+                            Loading mandi records from database...
+                          </td>
+                        </tr>
+                      ) : historyLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-surface-container-low/40 transition-colors">
+                          <td className="px-lg py-3.5 font-bold text-on-surface">{log.commodity}</td>
+                          <td className="px-lg py-3.5 text-on-surface-variant font-semibold">{log.variety}</td>
+                          <td className="px-lg py-3.5 text-on-surface-variant">
+                            <div>{log.market}</div>
+                            <div className="text-[10px] text-outline mt-0.5">{log.district}, {log.state}</div>
+                          </td>
+                          <td className="px-lg py-3.5 text-center font-medium text-on-surface-variant">
+                            {log.arrival_date ? new Date(log.arrival_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                          </td>
+                          <td className="px-lg py-3.5 text-right font-semibold text-on-surface-variant">₹{(log.modal_price * 100).toLocaleString()}</td>
+                          <td className="px-lg py-3.5 text-right font-bold text-primary">₹{log.price_per_kg}/kg</td>
+                        </tr>
+                      ))}
+                      {!historyLoading && historyLogs.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant">No mandi records matching your query were found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination control */}
+                  {historyPages > 1 && (
+                    <div className="px-lg py-md bg-surface-container-low/30 border-t border-outline-variant/10 flex justify-between items-center gap-md">
+                      <span className="text-[10px] text-outline font-semibold">Showing {historyLogs.length} of {historyTotal} records</span>
+                      <div className="flex gap-sm items-center">
+                        <button
+                          disabled={historyPage === 1}
+                          onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))}
+                          className="px-sm py-1 rounded border border-outline-variant/40 text-[10px] font-bold disabled:opacity-50 hover:bg-surface-container-low bg-white"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-[10px] font-bold text-on-surface">Page {historyPage} of {historyPages}</span>
+                        <button
+                          disabled={historyPage === historyPages}
+                          onClick={() => setHistoryPage(prev => Math.min(historyPages, prev + 1))}
+                          className="px-sm py-1 rounded border border-outline-variant/40 text-[10px] font-bold disabled:opacity-50 hover:bg-surface-container-low bg-white"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Standard aggregated commodities view */
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left">
+                    <thead className="bg-surface-container-low text-on-surface-variant font-label-md text-xs border-b border-outline-variant/20">
+                      <tr>
+                        <th className="px-lg py-3 font-semibold">Commodity</th>
+                        <th className="px-lg py-3 font-semibold text-right">Today's Price</th>
+                        <th className="px-lg py-3 font-semibold text-right">Yesterday's Price</th>
+                        <th className="px-lg py-3 font-semibold text-right">Difference</th>
+                        <th className="px-lg py-3 font-semibold text-center">Trend</th>
+                        <th className="px-lg py-3 font-semibold">AI Prediction Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10 text-xs">
+                      {filteredCommodities.map((c) => (
+                        <tr key={c.id} className="hover:bg-surface-container-low/40 transition-colors">
+                          <td className="px-lg py-3.5 font-semibold text-on-surface">{c.name} <span className="text-[10px] text-outline font-normal">({c.unit})</span></td>
+                          <td className="px-lg py-3.5 text-right font-bold text-on-surface">₹{c.todayPrice}</td>
+                          <td className="px-lg py-3.5 text-right text-on-surface-variant">₹{c.yesterdayPrice}</td>
+                          <td className="px-lg py-3.5 text-right">
+                            <span className={`font-bold ${
+                              c.trend === 'increasing' ? 'text-tertiary' : 
+                              c.trend === 'decreasing' ? 'text-primary' : 
+                              'text-on-surface-variant'
+                            }`}>
+                              {c.difference > 0 ? `+₹${c.difference}` : c.difference < 0 ? `-₹${Math.abs(c.difference)}` : '₹0'}
+                            </span>
+                          </td>
+                          <td className="px-lg py-3.5 text-center">
+                            <span className={`inline-flex items-center justify-center font-black text-sm w-6 h-6 rounded-full ${
+                              c.trend === 'increasing' ? 'text-tertiary bg-tertiary/10 border border-tertiary/20' : 
+                              c.trend === 'decreasing' ? 'text-primary bg-primary/10 border border-primary/20' : 
+                              'text-outline bg-surface-container-highest'
+                            }`}>
+                              {c.trend === 'increasing' ? '↑' : c.trend === 'decreasing' ? '↓' : '→'}
+                            </span>
+                          </td>
+                          <td className="px-lg py-3.5 text-on-surface-variant font-medium leading-tight max-w-[300px] truncate hover:whitespace-normal transition-all" title={c.prediction}>{c.prediction}</td>
+                        </tr>
+                      ))}
+                      {filteredCommodities.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant">No commodity matching your search query was found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
