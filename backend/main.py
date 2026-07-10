@@ -3,15 +3,25 @@ import sys
 import subprocess
 
 # Auto-generate Prisma Client Python if it hasn't been generated yet (useful for Render deployments)
+client_exists = False
 try:
     import prisma
     from prisma import Prisma
+    client_exists = True
 except (ImportError, RuntimeError):
+    pass
+
+if not client_exists:
     print("[Prisma] Client not found. Generating Prisma client...")
     schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prisma", "schema.prisma")
     try:
         subprocess.run([sys.executable, "-m", "prisma", "generate", f"--schema={schema_path}"], check=True)
-        print("[Prisma] Client successfully generated on startup.")
+        print("[Prisma] Client successfully generated on startup. Evicting module caches...")
+        # Force reload of prisma package
+        for key in list(sys.modules.keys()):
+            if key == "prisma" or key.startswith("prisma."):
+                del sys.modules[key]
+        print("[Prisma] Module caches evicted successfully.")
     except Exception as e:
         print(f"[Prisma] Failed to auto-generate client on startup: {e}")
 
