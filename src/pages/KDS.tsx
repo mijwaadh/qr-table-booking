@@ -10,11 +10,15 @@ import {
   Maximize, 
   Bell, 
   Settings, 
-  CheckCircle,
   ChevronLeft,
-  XCircle,
-  AlertTriangle
+  Volume2,
+  VolumeX,
+  ChevronDown,
+  Utensils,
+  X,
+  RefreshCw
 } from 'lucide-react';
+import { playNewOrderSound, playKOTReadySound, isAudioAlertsEnabled, setAudioAlertsEnabled, playItemTapSound, playBilledSound } from '../utils/audioAlerts';
 
 
 export const KDS: React.FC = () => {
@@ -23,6 +27,26 @@ export const KDS: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => isAudioAlertsEnabled());
+  const [prevOrdersCount, setPrevOrdersCount] = useState<number>(orders.length);
+
+  // KDS UI & Notification State
+  const [showBumpOrders, setShowBumpOrders] = useState(false);
+  const [activeStateDropdown, setActiveStateDropdown] = useState<string | null>(null);
+  const [bumpedOrderIds, setBumpedOrderIds] = useState<string[]>([]);
+  const [kdsToast, setKdsToast] = useState<string | null>(null);
+
+  const triggerKdsToast = (msg: string) => {
+    setKdsToast(msg);
+    setTimeout(() => setKdsToast(null), 4500);
+  };
+
+  useEffect(() => {
+    if (orders.length > prevOrdersCount) {
+      playNewOrderSound();
+    }
+    setPrevOrdersCount(orders.length);
+  }, [orders.length, prevOrdersCount]);
 
   // Update clock every second
   useEffect(() => {
@@ -83,11 +107,32 @@ export const KDS: React.FC = () => {
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-outline" />
           </div>
           <div className="flex gap-sm">
-            <button className="p-3 rounded-xl bg-surface-container hover:bg-surface-container-highest transition-colors text-on-surface">
-              <Maximize className="w-5 h-5" />
+            <button 
+              onClick={() => {
+                const next = !soundEnabled;
+                setAudioAlertsEnabled(next);
+                setSoundEnabled(next);
+              }}
+              title={soundEnabled ? 'Mute KDS Sound Alerts' : 'Unmute KDS Sound Alerts'}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-xs transition-all border shadow-sm ${
+                soundEnabled 
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100' 
+                  : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600 animate-pulse" /> : <VolumeX className="w-4 h-4 text-red-500" />}
+              <span>{soundEnabled ? 'Sound: ON' : 'Sound: OFF'}</span>
+            </button>
+            <button 
+              onClick={() => playNewOrderSound()}
+              title="Test KDS Order Bell"
+              className="flex items-center gap-1.5 px-3.5 py-3 rounded-xl bg-surface-container hover:bg-surface-container-highest transition-colors text-on-surface text-xs font-bold border border-outline-variant/60 shadow-sm"
+            >
+              <Bell className="w-4 h-4 text-primary" />
+              <span>Test Bell</span>
             </button>
             <button className="p-3 rounded-xl bg-surface-container hover:bg-surface-container-highest transition-colors text-on-surface">
-              <Bell className="w-5 h-5" />
+              <Maximize className="w-5 h-5" />
             </button>
             <button 
               onClick={() => alert('KDS Settings Opened')}
@@ -100,97 +145,224 @@ export const KDS: React.FC = () => {
         </div>
       </header>
 
-      {/* Main KDS Grid */}
-      <main className="p-xl container mx-auto max-w-[1920px] flex-1">
-        <div className="kds-grid">
-          
-          {/* Active Orders List */}
-          {filteredOrders.map((order) => {
-            const isLate = order.elapsedMinutes >= 20;
-            const isNew = order.elapsedMinutes < 2;
+      {/* Main KDS Grid & Top Bar */}
+      <main className="p-6 container mx-auto max-w-[1920px] flex-1 space-y-6">
+        {/* Top Control Bar matching MBill KDS screenshot exactly */}
+        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="flex items-center gap-2.5 cursor-pointer text-sm font-extrabold text-gray-800 select-none hover:text-black transition-colors">
+              <input 
+                type="checkbox"
+                checked={showBumpOrders}
+                onChange={(e) => setShowBumpOrders(e.target.checked)}
+                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+              />
+              <span>Show bump orders</span>
+            </label>
 
-            return (
-              <div 
-                key={order.id} 
-                onClick={() => setSelectedOrder(order)}
-                className={`bg-white rounded-2xl border-2 flex flex-col shadow-lg overflow-hidden transition-all duration-300 transform hover:scale-[1.02] cursor-pointer ${
-                  isLate ? 'border-error bg-error/10 animate-pulse shadow-error/20' : isNew ? 'order-glow-new border-primary/50' : 'border-outline-variant/60 hover:border-primary/50'
-                }`}
-              >
-                {isLate && (
-                  <div className="bg-error text-white font-label-md text-xs font-black py-1 px-3 flex items-center justify-center gap-1 uppercase tracking-wider animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    <span>Warning: &gt;20m Max Wait Exceeded!</span>
-                  </div>
-                )}
-                {/* Header */}
-                <div className={`p-md flex justify-between items-center border-b ${
-                  isLate ? 'bg-error/15 border-error/30' : 'bg-surface-container-highest border-outline-variant'
-                }`}>
-                  <div className="flex items-baseline gap-xs">
-                    <span className={`font-display text-4xl leading-none font-extrabold ${isLate ? 'text-error' : 'text-primary'}`}>
-                      {order.tableId}
+            <button 
+              onClick={() => {
+                playItemTapSound();
+                triggerKdsToast('KDS live queue refreshed from server');
+              }}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-600" />
+              <span>Refresh</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                const pending = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+                if (pending.length === 0) return;
+                if (confirm(`Mark all ${pending.length} active KOT orders as Served?`)) {
+                  pending.forEach(o => updateOrderStatus(o.id, 'COMPLETED'));
+                  playBilledSound();
+                  triggerKdsToast('All KOT orders settled & marked as served.');
+                }
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
+            >
+              Settle All
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl border border-gray-200 font-extrabold text-sm text-gray-800">
+            <span>Total pending KOT&apos;s :</span>
+            <span className="w-6 h-6 rounded-full bg-red-500 text-white font-black text-xs inline-flex items-center justify-center shadow-sm">
+              {orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && !bumpedOrderIds.includes(o.id)).length}
+            </span>
+          </div>
+        </div>
+
+        {/* Bento Grid KOT Cards matching KDS screenshot */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-start">
+          {filteredOrders
+            .filter(o => showBumpOrders || !bumpedOrderIds.includes(o.id))
+            .map(order => {
+              const isBumped = bumpedOrderIds.includes(order.id);
+              const isDropdownOpen = activeStateDropdown === order.id;
+
+              return (
+                <div 
+                  key={order.id}
+                  className={`rounded-xl border shadow-md overflow-visible relative flex flex-col transition-all bg-white ${
+                    isBumped ? 'border-amber-400 opacity-70' : 'border-gray-300 hover:shadow-xl'
+                  }`}
+                >
+                  {/* Card Header matching gray banner exactly (#5b5b5b) */}
+                  <div className="bg-[#5b5b5b] text-white px-3.5 py-2.5 rounded-t-xl flex items-center justify-between font-extrabold text-xs tracking-wide">
+                    <div className="flex items-center gap-1.5">
+                      <Utensils className="w-3.5 h-3.5 text-gray-300" />
+                      <span>Table{order.tableId.replace(/^T0?/, '')}</span>
+                    </div>
+                    <span className="text-gray-200">KOT : {order.id.replace(/[^0-9]/g, '') || order.id}</span>
+                    <span className="uppercase text-[10px] tracking-wider font-black px-1.5 py-0.5 bg-black/20 rounded">
+                      {isBumped ? 'BUMPED' : 'ADMIN'}
                     </span>
-                    <span className="font-label-md text-xs text-outline uppercase tracking-widest font-semibold ml-1">Main</span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-label-sm text-xs text-on-surface-variant font-bold">ORDER #{order.id}</p>
-                    <p className={`font-headline-sm text-lg font-black flex items-center justify-end gap-1 ${
-                      isLate ? 'text-error animate-pulse' : isNew ? 'text-primary' : 'text-secondary'
-                    }`}>
-                      <Clock className="w-4 h-4" />
-                      <span>{order.elapsedMinutes}:00</span>
-                    </p>
-                  </div>
-                </div>
 
-                {/* Items List */}
-                <div className="flex-grow p-lg space-y-sm overflow-y-auto max-h-[300px] custom-scrollbar">
-                  {order.items.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex flex-col py-1 border-b border-outline-variant/30 last:border-0"
-                    >
-                      <p className="font-headline-sm text-lg text-on-surface font-bold">
-                        {item.quantity}x {item.menuItem.name}
-                      </p>
-                      {item.notes && (
-                        <p className="font-label-md text-xs text-tertiary font-semibold uppercase mt-0.5">{item.notes}</p>
+                  {/* White Card Body with bold quantities & items */}
+                  <div 
+                    onClick={() => setSelectedOrder(order)}
+                    className="p-4 divide-y divide-gray-100 cursor-pointer min-h-[140px] flex flex-col justify-center space-y-1"
+                  >
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="py-2 flex items-center gap-3 font-black text-base text-gray-900 leading-snug">
+                        <span className="text-gray-900 text-lg w-5 text-right">{item.quantity}</span>
+                        <span className="text-gray-400 font-normal">×</span>
+                        <span className="text-gray-900 flex-1 truncate">{item.menuItem.name}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Card Footer matching gray banner exactly */}
+                  <div className="bg-[#5b5b5b] text-white px-3.5 py-2.5 rounded-b-xl flex items-center justify-between text-xs font-bold relative">
+                    <div className="flex items-center gap-1.5 text-gray-200">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{order.elapsedMinutes === 0 ? 'Just Placed' : `${order.elapsedMinutes}m ago`}</span>
+                    </div>
+
+                    {/* Trigger Button: [ Placed ▼ ] */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveStateDropdown(isDropdownOpen ? null : order.id);
+                        }}
+                        className="bg-[#222222] hover:bg-black text-white px-3 py-1.5 rounded font-black text-xs tracking-wider flex items-center gap-1.5 shadow active:scale-95 transition-all"
+                      >
+                        <span>{isBumped ? 'BUMPED' : order.status === 'PENDING' ? 'PLACED' : order.status === 'COMPLETED' ? 'SERVED' : order.status}</span>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Floating Dropdown: Update State exactly like screenshot */}
+                      {isDropdownOpen && (
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 bottom-11 z-[80] w-44 bg-white rounded-2xl shadow-2xl border border-gray-200 py-1 text-gray-900 animate-fadeIn"
+                        >
+                          <div className="px-3 py-2 border-b border-gray-100 text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">
+                            Update State
+                          </div>
+                          <div className="p-1 space-y-0.5 font-extrabold text-xs">
+                            <button
+                              onClick={() => {
+                                setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                updateOrderStatus(order.id, 'PENDING');
+                                setActiveStateDropdown(null);
+                                playItemTapSound();
+                                triggerKdsToast('KOT status updated from KDS');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 text-purple-700 transition-colors"
+                            >
+                              PLACED
+                            </button>
+                            <button
+                              onClick={() => {
+                                setBumpedOrderIds(prev => [...new Set([...prev, order.id])]);
+                                setActiveStateDropdown(null);
+                                playItemTapSound();
+                                triggerKdsToast('KOT status updated from KDS');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-amber-50 text-amber-900 transition-colors"
+                            >
+                              BUMPED
+                            </button>
+                            <button
+                              onClick={() => {
+                                setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                updateOrderStatus(order.id, 'PREPARING');
+                                setActiveStateDropdown(null);
+                                playItemTapSound();
+                                triggerKdsToast('KOT status updated from KDS');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-900 transition-colors"
+                            >
+                              PREPARING
+                            </button>
+                            <button
+                              onClick={() => {
+                                setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                updateOrderStatus(order.id, 'READY');
+                                setActiveStateDropdown(null);
+                                playKOTReadySound();
+                                triggerKdsToast('KOT status updated from KDS');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 text-green-900 transition-colors"
+                            >
+                              READY
+                            </button>
+                            <button
+                              onClick={() => {
+                                setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                updateOrderStatus(order.id, 'COMPLETED');
+                                setActiveStateDropdown(null);
+                                playBilledSound();
+                                triggerKdsToast('KOT status updated from KDS');
+                              }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-900 transition-colors"
+                            >
+                              SERVED
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  ))}
+                  </div>
                 </div>
+              );
+            })}
 
-                {/* Actions */}
-                <div className="p-md grid grid-cols-2 gap-md bg-surface-container-low border-t border-outline-variant/60">
-                  <button 
-                    onClick={() => updateOrderStatus(order.id, 'CANCELLED')}
-                    className="py-3 rounded-xl font-label-md font-semibold text-sm transition-all flex items-center justify-center gap-sm border-2 text-error border-error/30 hover:bg-error/10 hover:border-error active:scale-95"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    <span>Cancel</span>
-                  </button>
-                  <button 
-                    onClick={() => updateOrderStatus(order.id, 'READY')}
-                    className="py-3 rounded-xl font-label-md bg-primary text-on-primary hover:bg-primary/95 transition-all flex items-center justify-center gap-sm shadow-sm font-bold text-sm active:scale-95"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Ready</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Fallback Empty State */}
-          {filteredOrders.length === 0 && (
-            <div className="col-span-full bg-white rounded-2xl border border-dashed border-outline-variant/60 p-xl text-center text-on-surface-variant flex flex-col items-center justify-center min-h-[350px]">
-              <ChefHat className="w-16 h-16 text-outline mb-sm animate-bounce" />
-              <h3 className="font-headline-sm text-lg font-bold">No active cooking tickets</h3>
-              <p className="text-sm mt-xs">Hooray! The kitchen queue is completely clear.</p>
+          {filteredOrders.filter(o => showBumpOrders || !bumpedOrderIds.includes(o.id)).length === 0 && (
+            <div className="col-span-full bg-white rounded-3xl border border-gray-200 p-16 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px] shadow-sm">
+              <ChefHat className="w-14 h-14 text-gray-300 mb-3 animate-bounce" />
+              <h4 className="font-headline-sm font-black text-xl text-gray-900">No active KOT orders</h4>
+              <p className="text-xs mt-1 text-gray-500 max-w-sm">All KOT orders have been prepared or served! New mobile customer orders will appear here automatically.</p>
             </div>
           )}
         </div>
+
+        {/* Universal Notification Toast Banner matching screenshot exactly */}
+        {kdsToast && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] animate-slide-up">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 px-5 py-3.5 flex items-center justify-between min-w-[320px] max-w-md gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-serif italic font-black text-sm shrink-0 shadow-sm">
+                  i
+                </div>
+                <span className="font-extrabold text-gray-800 text-sm leading-tight">{kdsToast}</span>
+              </div>
+              <button 
+                onClick={() => setKdsToast(null)} 
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer Navigation Station Status */}

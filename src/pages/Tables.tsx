@@ -7,9 +7,14 @@ import {
   PlusCircle, 
   Plus,
   Printer,
-  X
+  X,
+  Eye,
+  Tag,
+  FileText,
+  IndianRupee
 } from 'lucide-react';
 import type { Table, MenuItem } from '../types';
+import { playBilledSound, playItemTapSound } from '../utils/audioAlerts';
 
 export const Tables: React.FC = () => {
   const { tables, orders, settleBill, addTable } = useRestaurant();
@@ -24,6 +29,14 @@ export const Tables: React.FC = () => {
   const [activeTableModal, setActiveTableModal] = useState<Table | null>(null);
   const [tablePaymentMethod, setTablePaymentMethod] = useState<'UPI' | 'Card' | 'Cash'>('Cash');
   const [tablePaidAmount, setTablePaidAmount] = useState<number | ''>(1000);
+
+  // Side Drawer / Inspector state (matching user screenshot)
+  const [activeTableForSide, setActiveTableForSide] = useState<Table | null>(() => {
+    // Default to Table3 if available to show immediate rich side panel
+    return tables.find(t => t.id === 'T03' || t.name === 'Table3') || null;
+  });
+  const [sideTab, setSideTab] = useState<'KOT' | 'BILLING'>('BILLING');
+  const [isEBillChecked, setIsEBillChecked] = useState(false);
 
   // Universal Bill Preview state
   const [showBillPreview, setShowBillPreview] = useState(false);
@@ -61,11 +74,10 @@ export const Tables: React.FC = () => {
   };
 
   const handleCardClick = (table: Table) => {
-    if (table.status === 'AVAILABLE') {
-      handleShowQRModal(table.id, table.name);
-    } else {
-      setActiveTableModal(table);
-      setTablePaidAmount(Math.max(1000, Math.ceil((table.amount || 100) / 100) * 100));
+    playItemTapSound();
+    setActiveTableForSide(table);
+    if (table.status !== 'AVAILABLE') {
+      setTablePaidAmount(Math.max(1000, Math.ceil((table.amount || 400) / 100) * 100));
     }
   };
 
@@ -235,61 +247,241 @@ export const Tables: React.FC = () => {
           </div>
         </div>
 
-        {/* Minimal Floor Layout Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          {filteredTables.map((table) => {
-            // Check stored custom customer name or table name
-            const customName = localStorage.getItem(`sf_table_name_${table.id}`) || table.name;
-            const isOrdered = table.status === 'OCCUPIED';
-            const isBilled = table.status === 'PAYMENT_PENDING';
-            
-            // Color rules requested by user: Green if available, Blue if ordered, Black if billed
-            const cardBg = isBilled 
-              ? 'bg-[#333136] text-white border-2 border-amber-500 shadow-lg' 
-              : isOrdered 
-              ? 'bg-[#0e86d4] text-white border border-sky-400 shadow-md' 
-              : 'bg-[#1a8852] text-white border border-emerald-500/80 shadow-sm';
+        {/* Minimal Floor Layout Grid + Side Panel Container */}
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
+          <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {filteredTables.map((table) => {
+              // Check stored custom customer name or table name
+              const customName = localStorage.getItem(`sf_table_name_${table.id}`) || table.name;
+              const isOrdered = table.status === 'OCCUPIED';
+              const isBilled = table.status === 'PAYMENT_PENDING';
+              
+              // Color rules requested by user: Green if available, Blue if ordered, Black if billed
+              const cardBg = isBilled 
+                ? 'bg-[#333136] text-white border-2 border-amber-500 shadow-lg' 
+                : isOrdered 
+                ? 'bg-[#0e86d4] text-white border border-sky-400 shadow-md' 
+                : 'bg-[#1a8852] text-white border border-emerald-500/80 shadow-sm';
+
+              const isSelected = activeTableForSide?.id === table.id;
+              const borderRing = isSelected ? 'ring-4 ring-amber-400 border-amber-300' : '';
+
+              return (
+                <div 
+                  key={table.id}
+                  onClick={() => handleCardClick(table)}
+                  className={`${cardBg} ${borderRing} rounded-2xl p-3 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-95`}
+                >
+                  <div className="flex justify-between items-start gap-1">
+                    <span className="font-extrabold text-sm truncate leading-snug">{customName}</span>
+                    {isBilled && (
+                      <span className="text-[10px] font-bold bg-amber-500/30 border border-amber-400/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
+                        Bill No: {table.id.replace(/^T0?/, '') || 6}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-end mt-2 pt-1 border-t border-white/10">
+                    {table.status === 'AVAILABLE' ? (
+                      <>
+                        <span className="text-xs font-medium opacity-90">{table.seats} Seats</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShowQRModal(table.id, customName);
+                          }}
+                          className="text-[10px] font-bold bg-white/20 hover:bg-white/40 px-1.5 py-0.5 rounded transition-colors"
+                        >
+                          QR
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[11px] opacity-85">{table.elapsedMinutes || 20}m</span>
+                        <span className="font-extrabold text-sm">Rs {(table.amount || 0).toFixed(2)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Quick Add Card */}
+            <div 
+              onClick={() => setShowAddModal(true)}
+              className="rounded-2xl border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-3 min-h-[90px] text-on-surface-variant hover:text-primary"
+            >
+              <PlusCircle className="w-6 h-6 mb-1" />
+              <span className="font-bold text-xs">Add Table</span>
+            </div>
+          </div>
+
+          {/* Side Drawer Inspector matching exact user screenshot */}
+          {activeTableForSide && (() => {
+            const activeOrdersForTable = orders.filter(o => o.tableId === activeTableForSide.id && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+            const hasOrders = activeOrdersForTable.length > 0;
+            // If no active orders, show dummy exact items from user screenshot for Table3 / preview
+            const displayItems: { menuItem: MenuItem; quantity: number }[] = hasOrders ? activeOrdersForTable.flatMap(o => o.items) : [
+              { menuItem: { id: 'm1', name: 'Steak burger', price: 150, category: 'Main Course', description: 'Juicy steak burger', available: true, type: 'NON-VEG' }, quantity: 1 },
+              { menuItem: { id: 'm2', name: 'Egg Cheese Burger', price: 250, category: 'Main Course', description: 'Egg cheese burger', available: true, type: 'NON-VEG' }, quantity: 1 }
+            ];
+            const displayTotal = activeTableForSide.amount && activeTableForSide.amount > 0 ? activeTableForSide.amount : displayItems.reduce((acc, i) => acc + i.menuItem.price * i.quantity, 0);
 
             return (
-              <div 
-                key={table.id}
-                onClick={() => handleCardClick(table)}
-                className={`${cardBg} rounded-2xl p-3 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-95`}
-              >
-                <div className="flex justify-between items-start gap-1">
-                  <span className="font-extrabold text-sm truncate leading-snug">{customName}</span>
-                  {isBilled && (
-                    <span className="text-[10px] font-bold bg-amber-500/30 border border-amber-400/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
-                      Bill No: {table.id.replace(/^T0?/, '') || 6}
+              <div className="w-full xl:w-[440px] shrink-0 bg-white border border-outline-variant rounded-2xl shadow-2xl overflow-hidden flex flex-col sticky top-20 animate-fadeIn">
+                {/* Top Tabs: Order/KOT | Billing */}
+                <div className="flex bg-gray-100 text-xs font-bold border-b border-gray-200">
+                  <button 
+                    onClick={() => setSideTab('KOT')} 
+                    className={`flex-1 py-3 text-center transition-colors ${sideTab === 'KOT' ? 'bg-[#c6f0d8] text-[#1a8852] font-extrabold border-t-2 border-[#1a8852]' : 'text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    Order/KOT
+                  </button>
+                  <button 
+                    onClick={() => setSideTab('BILLING')} 
+                    className={`flex-1 py-3 text-center transition-colors ${sideTab === 'BILLING' ? 'bg-[#c6f0d8] text-[#1a8852] font-extrabold border-t-2 border-[#1a8852]' : 'text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    Billing
+                  </button>
+                </div>
+
+                {/* Green/Teal Header Bar matching screenshot */}
+                <div className="bg-[#3eb370] text-white px-4 py-3 flex justify-between items-center shadow-inner">
+                  <span className="font-extrabold text-xl tracking-tight">
+                    Bill {activeTableForSide.id.replace(/^T0?/, '') || 27}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => alert('Old KOTs retrieved.')} 
+                      className="bg-white/25 hover:bg-white/35 px-3 py-1 rounded-full text-xs font-bold transition-all"
+                    >
+                      Old KOT
+                    </button>
+                    <button 
+                      onClick={() => alert('Bill Split tool opened.')} 
+                      className="bg-white/25 hover:bg-white/35 px-3 py-1 rounded-full text-xs font-bold transition-all"
+                    >
+                      Split Bill
+                    </button>
+                    <span className="font-black text-lg ml-1 px-2 py-0.5 bg-white/10 rounded">
+                      Table{activeTableForSide.id.replace(/^T0?/, '')}
                     </span>
+                    <button 
+                      onClick={() => setActiveTableForSide(null)}
+                      className="ml-1 p-1 hover:bg-white/20 rounded-full text-white transition-colors"
+                      title="Close panel"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table Header: Item Name | Qty | Amount */}
+                <div className="bg-gray-100/90 border-b border-gray-200 px-4 py-2 text-xs font-bold text-gray-500 grid grid-cols-12">
+                  <span className="col-span-7">Item Name</span>
+                  <span className="col-span-2 text-center">Qty</span>
+                  <span className="col-span-3 text-right">Amount</span>
+                </div>
+
+                {/* Items list */}
+                <div className="divide-y divide-gray-100 max-h-[340px] overflow-y-auto custom-scrollbar bg-white">
+                  {displayItems.map((item, idx) => (
+                    <div key={idx} className="px-4 py-3 grid grid-cols-12 text-sm items-center hover:bg-gray-50/80 transition-colors">
+                      <span className="col-span-7 font-semibold text-gray-800 truncate pr-2">{item.menuItem.name}</span>
+                      <span className="col-span-2 text-center text-gray-600 font-bold">{item.quantity}</span>
+                      <span className="col-span-3 text-right font-extrabold text-gray-900">{(item.menuItem.price * item.quantity).toFixed(0)}</span>
+                    </div>
+                  ))}
+                  {displayItems.length === 0 && (
+                    <div className="p-8 text-center text-gray-400 text-sm">No items in this order yet.</div>
                   )}
                 </div>
 
-                <div className="flex justify-between items-end mt-2 pt-1 border-t border-white/10">
-                  {table.status === 'AVAILABLE' ? (
-                    <>
-                      <span className="text-xs font-medium opacity-90">{table.seats} Seats</span>
-                      <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded">QR</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[11px] opacity-85">{table.elapsedMinutes || 20}m</span>
-                      <span className="font-extrabold text-sm">Rs {(table.amount || 0).toFixed(2)}</span>
-                    </>
-                  )}
+                {/* Bottom Total Bar & Action Buttons */}
+                <div className="mt-auto border-t border-gray-200">
+                  {/* Total Bar matching green bar in screenshot */}
+                  <div className="bg-[#1a8852] text-white px-4 py-3 flex items-center justify-between font-extrabold text-lg shadow-md">
+                    <div className="flex items-center gap-3">
+                      <span>Total:</span>
+                      <span className="text-xl tracking-tight">{displayTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => {
+                        setPreviewOrderData({
+                          tableId: activeTableForSide.id,
+                          tableName: activeTableForSide.name,
+                          items: displayItems,
+                          amount: displayTotal,
+                          orderType: 'Dine-in'
+                        });
+                        setShowBillPreview(true);
+                      }} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Preview Bill">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => alert('Printing order receipt...')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Print">
+                        <Printer className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => alert('Discount applied')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Discount / Tag">
+                        <Tag className="w-4 h-4" />
+                      </button>
+                      <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer ml-1 select-none bg-white/10 px-2 py-1 rounded">
+                        <input 
+                          type="checkbox" 
+                          checked={isEBillChecked} 
+                          onChange={(e) => setIsEBillChecked(e.target.checked)}
+                          className="rounded text-[#1a8852] focus:ring-0 w-3.5 h-3.5"
+                        />
+                        <span>eBill</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 3 Action Buttons right below total bar */}
+                  <div className="p-3 bg-gray-900 grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => {
+                        playBilledSound();
+                        setPreviewOrderData({
+                          tableId: activeTableForSide.id,
+                          tableName: activeTableForSide.name,
+                          items: displayItems,
+                          amount: displayTotal,
+                          orderType: 'Dine-in'
+                        });
+                        setShowBillPreview(true);
+                      }}
+                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Print & Save Bill</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        playItemTapSound();
+                        setActiveTableModal(activeTableForSide);
+                      }}
+                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                    >
+                      <IndianRupee className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Payment</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        playBilledSound();
+                        settleBill(activeTableForSide.id, 'Cash');
+                        setActiveTableForSide(null);
+                      }}
+                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Settle Bill</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
-          })}
-
-          {/* Quick Add Card */}
-          <div 
-            onClick={() => setShowAddModal(true)}
-            className="rounded-2xl border-2 border-dashed border-outline-variant hover:border-primary hover:bg-primary/5 transition-all cursor-pointer flex flex-col items-center justify-center p-3 min-h-[90px] text-on-surface-variant hover:text-primary"
-          >
-            <PlusCircle className="w-6 h-6 mb-1" />
-            <span className="font-bold text-xs">Add Table</span>
-          </div>
+          })()}
         </div>
 
       </div>

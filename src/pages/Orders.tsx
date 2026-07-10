@@ -6,45 +6,58 @@ import type { Order, MenuItem } from '../types';
 import TopNavBar from '../components/TopNavBar';
 import { 
   Clock,
-  Printer, 
-  TrendingDown, 
   CheckSquare2, 
-  CheckCheck,
   Zap,
   History,
   FileSpreadsheet,
   FileText,
   Filter,
   Eye,
-  Receipt
+  Receipt,
+  ChevronDown,
+  Utensils,
+  X,
+  RefreshCw
 } from 'lucide-react';
+import { playItemTapSound, playNewOrderSound, playBilledSound } from '../utils/audioAlerts';
 
 export const Orders: React.FC = () => {
   const { orders, updateOrderStatus } = useRestaurant();
   const [activeTab, setActiveTab] = useState<'LIVE' | 'HISTORY'>('LIVE');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'PENDING' | 'PREPARING' | 'READY'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PREPARING' | 'READY'>('ALL');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // Universal Bill Preview state
+  // Bill Preview Modal State
   const [showBillPreview, setShowBillPreview] = useState(false);
   const [previewOrderData, setPreviewOrderData] = useState<{
     tableId: string;
-    tableName: string;
+    tableName?: string;
     items: { menuItem: MenuItem; quantity: number }[];
-    amount: number;
-    orderType: string;
+    amount?: number;
+    orderType?: string;
     customerName?: string;
+    orderId?: string;
   } | null>(null);
 
-  // Filtering orders
-  const filterBySearch = (list: typeof orders) => {
-    return list.filter(o => {
+  // KDS UI & Notification State
+  const [showBumpOrders, setShowBumpOrders] = useState(false);
+  const [activeStateDropdown, setActiveStateDropdown] = useState<string | null>(null);
+  const [bumpedOrderIds, setBumpedOrderIds] = useState<string[]>([]);
+  const [kdsToast, setKdsToast] = useState<string | null>(null);
+
+  const triggerKdsToast = (msg: string) => {
+    setKdsToast(msg);
+    setTimeout(() => setKdsToast(null), 4500);
+  };
+
+  const filterBySearch = (list: Order[]) => {
+    return list.filter(order => {
       const matchesSearch = 
-        o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.tableId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.items.some(i => i.menuItem.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
+        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.tableId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.items.some(i => i.menuItem.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesStatus = statusFilter === 'ALL' || order.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   };
@@ -52,7 +65,6 @@ export const Orders: React.FC = () => {
   const pendingOrders = filterBySearch(orders.filter(o => o.status === 'PENDING'));
   const preparingOrders = filterBySearch(orders.filter(o => o.status === 'PREPARING'));
   const readyOrders = filterBySearch(orders.filter(o => o.status === 'READY'));
-  const completedOrders = filterBySearch(orders.filter(o => o.status === 'COMPLETED'));
 
   const historyOrders = filterBySearch(orders);
 
@@ -276,7 +288,7 @@ export const Orders: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
       {/* Top Navigation */}
-      <TopNavBar title="Orders Console" onSearchChange={setSearchTerm} />
+      <TopNavBar title="Orders Console" onSearchChange={setSearchQuery} />
 
       {/* Main Content Area */}
       <main className="p-xl overflow-y-auto">
@@ -316,289 +328,226 @@ export const Orders: React.FC = () => {
             </div>
           </div>
 
-          {/* ======================= TAB 1: LIVE ORDERS ======================= */}
+          {/* ======================= TAB 1: LIVE ORDERS (KDS VIEW) ======================= */}
           {activeTab === 'LIVE' && (
-            <div className="space-y-lg animate-fadeIn">
-              <div className="flex flex-wrap items-center justify-between gap-sm bg-surface-container-lowest p-3 rounded-2xl border border-outline-variant/20">
-                <div className="flex flex-wrap gap-sm">
-                  <span className="px-4 py-1.5 bg-primary-container/20 text-primary border border-primary/30 rounded-full font-label-md flex items-center gap-2 text-xs font-bold">
-                    Pending ({pendingOrders.length})
-                  </span>
-                  <span className="px-4 py-1.5 bg-sky-500/10 text-sky-700 border border-sky-400/30 rounded-full font-label-md flex items-center gap-2 text-xs font-bold">
-                    Preparing ({preparingOrders.length})
-                  </span>
-                  <span className="px-4 py-1.5 bg-amber-500/10 text-amber-700 border border-amber-400/30 rounded-full font-label-md flex items-center gap-2 text-xs font-bold">
-                    Ready ({readyOrders.length})
+            <div className="space-y-6 animate-fadeIn pb-12">
+              {/* Top Control Bar matching MBill KDS screenshot exactly */}
+              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2.5 cursor-pointer text-sm font-extrabold text-gray-800 select-none hover:text-black transition-colors">
+                    <input 
+                      type="checkbox"
+                      checked={showBumpOrders}
+                      onChange={(e) => setShowBumpOrders(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                    />
+                    <span>Show bump orders</span>
+                  </label>
+
+                  <button 
+                    onClick={() => {
+                      playItemTapSound();
+                      triggerKdsToast('KDS live queue refreshed from server');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
+                  >
+                    <RefreshCw className="w-4 h-4 text-gray-600" />
+                    <span>Refresh</span>
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      const pending = orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+                      if (pending.length === 0) return;
+                      if (confirm(`Mark all ${pending.length} active KOT orders as Served?`)) {
+                        pending.forEach(o => updateOrderStatus(o.id, 'COMPLETED'));
+                        playBilledSound();
+                        triggerKdsToast('All KOT orders settled & marked as served.');
+                      }
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 active:scale-95 transition-all text-sm font-extrabold text-gray-800 shadow-sm"
+                  >
+                    Settle All
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-xl border border-gray-200 font-extrabold text-sm text-gray-800">
+                  <span>Total pending KOT&apos;s :</span>
+                  <span className="w-6 h-6 rounded-full bg-red-500 text-white font-black text-xs inline-flex items-center justify-center shadow-sm">
+                    {orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && !bumpedOrderIds.includes(o.id)).length}
                   </span>
                 </div>
               </div>
 
-              {/* Main Grid */}
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-gutter items-start">
-                
-                {/* Live Orders Column (8 Columns) */}
-                <div className="xl:col-span-8 space-y-md">
-                  <div className="flex items-center justify-between mb-sm">
-                    <h3 className="font-headline-sm text-headline-sm flex items-center gap-sm font-bold">
-                      Active Kitchen Queue
-                      <span className="bg-primary text-white text-[12px] px-2 py-0.5 rounded-full font-bold">
-                        {pendingOrders.length + preparingOrders.length + readyOrders.length}
-                      </span>
-                    </h3>
-                  </div>
+              {/* Bento Grid KOT Cards matching KDS screenshot */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+                {orders
+                  .filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED')
+                  .filter(o => showBumpOrders || !bumpedOrderIds.includes(o.id))
+                  .map(order => {
+                    const isBumped = bumpedOrderIds.includes(order.id);
+                    const isDropdownOpen = activeStateDropdown === order.id;
 
-                  {/* Bento Grid layout for active orders */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                    
-                    {/* Pending List */}
-                    {pendingOrders.map(order => {
-                      const isLate = order.elapsedMinutes >= 20;
-                      return (
-                        <div 
-                          key={order.id} 
-                          onClick={() => setSelectedOrder(order)}
-                          className={`rounded-2xl border card-shadow p-5 flex flex-col gap-4 relative overflow-hidden cursor-pointer transition-all ${
-                            isLate ? 'border-error border-2 bg-error/10 animate-pulse shadow-error/10 shadow-lg' : 'bg-white border-outline-variant hover:border-primary/50'
-                          }`}
-                        >
-                          <div className={`absolute top-0 left-0 w-1.5 h-full ${isLate ? 'bg-error' : 'bg-tertiary-container'}`}></div>
-                          <div className="flex justify-between items-start pl-1">
-                            <div>
-                              <h4 className="font-headline-sm text-headline-sm text-on-surface font-extrabold">Order #{order.id}</h4>
-                              <p className="text-primary font-bold flex items-center gap-1 text-sm mt-0.5">
-                                Table {order.tableId}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                isLate ? 'bg-error text-white' : 'bg-amber-100 text-amber-800'
-                              }`}>
-                                {order.status}
-                              </span>
-                              <span className={`text-xs mt-1 flex items-center gap-1 ${
-                                isLate ? 'text-error font-extrabold' : 'text-outline-variant font-medium'
-                              }`}>
-                                <Clock className="w-3.5 h-3.5" />
-                                {order.elapsedMinutes}m elapsed
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5 py-3 border-y border-surface-container-highest pl-1">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-body-md text-sm">
-                                <span className="text-on-surface font-medium">{item.quantity}x {item.menuItem.name}</span>
-                                <span className="text-outline font-bold">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-auto pl-1" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                              className="flex-1 py-2 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-700 transition-all text-xs"
-                            >
-                              Start Preparing
-                            </button>
-                            <button 
-                              onClick={(e) => handleOpenBillPreview(order, e)}
-                              title="Print Universal Receipt"
-                              className="p-2.5 border border-outline-variant rounded-xl hover:bg-surface-container transition-colors text-primary"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Preparing List */}
-                    {preparingOrders.map(order => {
-                      const isLate = order.elapsedMinutes >= 20;
-                      return (
-                        <div 
-                          key={order.id} 
-                          onClick={() => setSelectedOrder(order)}
-                          className={`rounded-2xl border card-shadow p-5 flex flex-col gap-4 relative overflow-hidden cursor-pointer transition-all ${
-                            isLate ? 'border-error border-2 bg-error/10 animate-pulse' : 'bg-white border-outline-variant hover:border-primary/50'
-                          }`}
-                        >
-                          <div className={`absolute top-0 left-0 w-1.5 h-full ${isLate ? 'bg-error' : 'bg-sky-500'}`}></div>
-                          <div className="flex justify-between items-start pl-1">
-                            <div>
-                              <h4 className="font-headline-sm text-headline-sm text-on-surface font-extrabold">Order #{order.id}</h4>
-                              <p className="text-primary font-bold flex items-center gap-1 text-sm mt-0.5">
-                                Table {order.tableId}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
-                                {order.status}
-                              </span>
-                              <span className={`text-xs mt-1 flex items-center gap-1 ${
-                                isLate ? 'text-error font-extrabold' : 'text-outline-variant font-medium'
-                              }`}>
-                                <Clock className="w-3.5 h-3.5" />
-                                {order.elapsedMinutes}m elapsed
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5 py-3 border-y border-surface-container-highest pl-1">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-body-md text-sm">
-                                <span className="text-on-surface font-medium">{item.quantity}x {item.menuItem.name}</span>
-                                <span className="text-outline font-bold">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-auto pl-1" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => updateOrderStatus(order.id, 'READY')}
-                              className="flex-1 py-2 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all text-xs"
-                            >
-                              Mark Ready
-                            </button>
-                            <button 
-                              onClick={(e) => handleOpenBillPreview(order, e)}
-                              title="Print Universal Receipt"
-                              className="p-2.5 border border-outline-variant rounded-xl hover:bg-surface-container transition-colors text-primary"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Ready List */}
-                    {readyOrders.map(order => {
-                      const isLate = order.elapsedMinutes >= 20;
-                      return (
-                        <div 
-                          key={order.id} 
-                          onClick={() => setSelectedOrder(order)}
-                          className="rounded-2xl border card-shadow p-5 flex flex-col gap-4 relative overflow-hidden cursor-pointer transition-all bg-white border-outline-variant hover:border-primary/50"
-                        >
-                          <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-                          <div className="flex justify-between items-start pl-1">
-                            <div>
-                              <h4 className="font-headline-sm text-headline-sm text-on-surface font-extrabold">Order #{order.id}</h4>
-                              <p className="text-primary font-bold flex items-center gap-1 text-sm mt-0.5">
-                                Table {order.tableId}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                                {order.status}
-                              </span>
-                              <span className={`text-xs mt-1 flex items-center gap-1 ${
-                                isLate ? 'text-error font-extrabold' : 'text-outline-variant font-medium'
-                              }`}>
-                                <Clock className="w-3.5 h-3.5" />
-                                {order.elapsedMinutes}m elapsed
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5 py-3 border-y border-surface-container-highest pl-1">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-body-md text-sm">
-                                <span className="text-on-surface font-medium">{item.quantity}x {item.menuItem.name}</span>
-                                <span className="text-outline font-bold">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center gap-2 mt-auto pl-1" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                              className="flex-1 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all text-xs"
-                            >
-                              Serve & Complete
-                            </button>
-                            <button 
-                              onClick={(e) => handleOpenBillPreview(order, e)}
-                              title="Print Universal Receipt"
-                              className="p-2.5 border border-outline-variant rounded-xl hover:bg-surface-container transition-colors text-primary"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Empty State */}
-                    {pendingOrders.length === 0 && preparingOrders.length === 0 && readyOrders.length === 0 && (
-                      <div className="col-span-2 bg-white rounded-3xl border border-outline-variant/30 p-12 text-center text-on-surface-variant flex flex-col items-center justify-center min-h-[300px]">
-                        <CheckSquare2 className="w-14 h-14 text-outline mb-3" />
-                        <h4 className="font-headline-sm font-bold text-lg text-on-surface">No active orders</h4>
-                        <p className="text-xs mt-1 max-w-sm">All kitchen queue orders have been successfully prepared and served!</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Completed Orders Column (4 Columns) */}
-                <div className="xl:col-span-4 space-y-md">
-                  <div className="flex items-center justify-between mb-sm">
-                    <h3 className="font-headline-sm text-headline-sm flex items-center gap-sm text-on-surface-variant font-bold">
-                      Recently Completed
-                      <span className="bg-surface-container-highest text-on-surface-variant text-[12px] px-2 py-0.5 rounded-full font-bold">
-                        {completedOrders.length} Today
-                      </span>
-                    </h3>
-                  </div>
-
-                  <div className="bg-surface-container-low border border-outline-variant rounded-2xl p-4 space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar">
-                    {completedOrders.map(order => (
+                    return (
                       <div 
                         key={order.id}
-                        onClick={() => setSelectedOrder(order)}
-                        className="flex items-center gap-3 p-3 bg-white hover:bg-surface-container-highest rounded-xl transition-colors cursor-pointer group shadow-sm border border-outline-variant/20"
+                        className={`rounded-xl border shadow-md overflow-visible relative flex flex-col transition-all bg-white ${
+                          isBumped ? 'border-amber-400 opacity-70' : 'border-gray-300 hover:shadow-xl'
+                        }`}
                       >
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shrink-0">
-                          <CheckCheck className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-on-surface text-sm">#{order.id} • Table {order.tableId}</span>
-                            <span className="text-[10px] text-outline font-semibold">{order.time}</span>
+                        {/* Card Header matching gray banner exactly (#5b5b5b) */}
+                        <div className="bg-[#5b5b5b] text-white px-3.5 py-2.5 rounded-t-xl flex items-center justify-between font-extrabold text-xs tracking-wide">
+                          <div className="flex items-center gap-1.5">
+                            <Utensils className="w-3.5 h-3.5 text-gray-300" />
+                            <span>Table{order.tableId.replace(/^T0?/, '')}</span>
                           </div>
-                          <p className="text-xs text-on-surface-variant truncate mt-0.5">
-                            {order.items.map(i => `${i.quantity}x ${i.menuItem.name}`).join(', ')}
-                          </p>
+                          <span className="text-gray-200">KOT : {order.id.replace(/[^0-9]/g, '') || order.id}</span>
+                          <span className="uppercase text-[10px] tracking-wider font-black px-1.5 py-0.5 bg-black/20 rounded">
+                            {isBumped ? 'BUMPED' : 'ADMIN'}
+                          </span>
                         </div>
-                        <div className="text-right shrink-0 ml-1">
-                          <p className="font-extrabold text-on-surface text-sm">₹{order.amount.toFixed(2)}</p>
-                          <p className="text-[9px] text-emerald-600 uppercase font-black">Paid</p>
+
+                        {/* White Card Body with bold quantities & items */}
+                        <div 
+                          onClick={() => setSelectedOrder(order)}
+                          className="p-4 divide-y divide-gray-100 cursor-pointer min-h-[130px] flex flex-col justify-center space-y-1"
+                        >
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="py-2 flex items-center gap-3 font-black text-base text-gray-900 leading-snug">
+                              <span className="text-gray-900 text-lg w-5 text-right">{item.quantity}</span>
+                              <span className="text-gray-400 font-normal">×</span>
+                              <span className="text-gray-900 flex-1 truncate">{item.menuItem.name}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Card Footer matching gray banner exactly */}
+                        <div className="bg-[#5b5b5b] text-white px-3.5 py-2.5 rounded-b-xl flex items-center justify-between text-xs font-bold relative">
+                          <div className="flex items-center gap-1.5 text-gray-200">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{order.elapsedMinutes === 0 ? 'Just Placed' : `${order.elapsedMinutes}m ago`}</span>
+                          </div>
+
+                          {/* Trigger Button: [ Placed ▼ ] */}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveStateDropdown(isDropdownOpen ? null : order.id);
+                              }}
+                              className="bg-[#222222] hover:bg-black text-white px-3 py-1.5 rounded font-black text-xs tracking-wider flex items-center gap-1.5 shadow active:scale-95 transition-all"
+                            >
+                              <span>{isBumped ? 'BUMPED' : order.status === 'PENDING' ? 'PLACED' : order.status === 'COMPLETED' ? 'SERVED' : order.status}</span>
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Floating Dropdown: Update State exactly like screenshot */}
+                            {isDropdownOpen && (
+                              <div 
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 bottom-11 z-[80] w-44 bg-white rounded-2xl shadow-2xl border border-gray-200 py-1 text-gray-900 animate-fadeIn"
+                              >
+                                <div className="px-3 py-2 border-b border-gray-100 text-[11px] font-extrabold text-gray-500 uppercase tracking-wider">
+                                  Update State
+                                </div>
+                                <div className="p-1 space-y-0.5 font-extrabold text-xs">
+                                  <button
+                                    onClick={() => {
+                                      setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                      updateOrderStatus(order.id, 'PENDING');
+                                      setActiveStateDropdown(null);
+                                      playItemTapSound();
+                                      triggerKdsToast('KOT status updated from KDS');
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 text-purple-700 transition-colors"
+                                  >
+                                    PLACED
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setBumpedOrderIds(prev => [...new Set([...prev, order.id])]);
+                                      setActiveStateDropdown(null);
+                                      playItemTapSound();
+                                      triggerKdsToast('KOT status updated from KDS');
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-amber-50 text-amber-900 transition-colors"
+                                  >
+                                    BUMPED
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                      updateOrderStatus(order.id, 'PREPARING');
+                                      setActiveStateDropdown(null);
+                                      playItemTapSound();
+                                      triggerKdsToast('KOT status updated from KDS');
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-900 transition-colors"
+                                  >
+                                    PREPARING
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                      updateOrderStatus(order.id, 'READY');
+                                      setActiveStateDropdown(null);
+                                      playNewOrderSound();
+                                      triggerKdsToast('KOT status updated from KDS');
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 text-green-900 transition-colors"
+                                  >
+                                    READY
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setBumpedOrderIds(prev => prev.filter(id => id !== order.id));
+                                      updateOrderStatus(order.id, 'COMPLETED');
+                                      setActiveStateDropdown(null);
+                                      playBilledSound();
+                                      triggerKdsToast('KOT status updated from KDS');
+                                    }}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-900 transition-colors"
+                                  >
+                                    SERVED
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    ))}
-                    {completedOrders.length === 0 && (
-                      <p className="text-center text-xs text-on-surface-variant py-8">No orders completed yet during this shift.</p>
-                    )}
-                  </div>
+                    );
+                  })}
 
-                  {/* Efficiency Card */}
-                  <div className="bg-primary text-white rounded-2xl p-6 relative overflow-hidden card-shadow">
-                    <div className="relative z-10">
-                      <p className="text-primary-fixed font-label-md uppercase tracking-widest opacity-80 text-xs font-bold">Floor Efficiency</p>
-                      <h4 className="text-display font-display mt-1 font-black text-4xl">18.4m</h4>
-                      <p className="text-body-sm text-primary-fixed-dim mt-1.5 flex items-center gap-1 text-xs font-medium">
-                        <TrendingDown className="w-4 h-4" />
-                        2.4m faster avg preparation speed
-                      </p>
+                {orders.filter(o => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && (showBumpOrders || !bumpedOrderIds.includes(o.id))).length === 0 && (
+                  <div className="col-span-full bg-white rounded-3xl border border-gray-200 p-16 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px] shadow-sm">
+                    <CheckSquare2 className="w-14 h-14 text-gray-300 mb-3 animate-bounce" />
+                    <h4 className="font-headline-sm font-black text-xl text-gray-900">No active KOT orders</h4>
+                    <p className="text-xs mt-1 text-gray-500 max-w-sm">All KOT orders have been prepared or served! New mobile customer orders will appear here automatically.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Universal Notification Toast Banner matching screenshot exactly */}
+              {kdsToast && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-slide-up">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 px-5 py-3.5 flex items-center justify-between min-w-[320px] max-w-md gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-serif italic font-black text-sm shrink-0 shadow-sm">
+                        i
+                      </div>
+                      <span className="font-extrabold text-gray-800 text-sm leading-tight">{kdsToast}</span>
                     </div>
-                    <div className="absolute -right-4 -bottom-4 opacity-10">
-                      <Zap className="w-28 h-28" />
-                    </div>
+                    <button 
+                      onClick={() => setKdsToast(null)} 
+                      className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-              </div>
+              )}
             </div>
           )}
 

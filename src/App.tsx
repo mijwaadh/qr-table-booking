@@ -8,6 +8,7 @@ import Tables from './pages/Tables';
 import Menu from './pages/Menu';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
+import Expenses from './pages/Expenses';
 import KDS from './pages/KDS';
 import MobileOrder from './pages/MobileOrder';
 import DemoControl from './pages/DemoControl';
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
         <Route path="menu" element={<Menu />} />
         <Route path="billing" element={<Payments />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="expenses" element={<Expenses />} />
         <Route path="demo" element={<DemoControl />} />
         <Route path="ai-intelligence" element={<AIIntelligence />} />
         {/* Fallback settings page just routes to dashboard */}

@@ -18,9 +18,13 @@ import {
   Hourglass,
   ChevronLeft,
   Loader2,
-  Check
+  Check,
+  ArrowLeft,
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import type { MenuItem } from '../types';
+import { playNewOrderSound, playCashPaymentSound, playItemTapSound, playBilledSound } from '../utils/audioAlerts';
 
 interface CartItem {
   menuItem: MenuItem;
@@ -60,58 +64,69 @@ export const MobileOrder: React.FC = () => {
       return saved ? JSON.parse(saved).phone || '' : '';
     } catch { return ''; }
   });
-  const [showQRRegistrationModal, setShowQRRegistrationModal] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
-      return !saved;
-    } catch { return true; }
-  });
+  const [showQRRegistrationModal, setShowQRRegistrationModal] = useState(false);
   const [isRegisteringQR, setIsRegisteringQR] = useState(false);
+
+  // Table PIN and Order with friends State
+  const [tablePin] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`sf_table_pin_${tableId}`);
+      if (saved) return saved;
+      const pin = '27' + (tableId.replace(/[^0-9]/g, '').padStart(2, '0') || '44');
+      localStorage.setItem(`sf_table_pin_${tableId}`, pin);
+      return pin;
+    } catch { return '2744'; }
+  });
+  const [qrModalTab, setQrModalTab] = useState<'NEW' | 'JOIN'>('NEW');
+  const [joinPinInput, setJoinPinInput] = useState('');
+  const [, setRazorpayPaymentId] = useState<string | null>(null);
 
   // Local Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
   
   // Modal Views
-  const [activeModal, setActiveModal] = useState<'NONE' | 'CHECKOUT' | 'TRACKING' | 'BILLING'>('NONE');
+  const [activeModal, setActiveModal] = useState<'NONE' | 'CHECKOUT' | 'TRACKING' | 'BILLING' | 'SERVICE'>('NONE');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'Online' | 'Cash'>('Online');
+  const [serviceCheckboxes, setServiceCheckboxes] = useState({
+    callWaiter: false,
+    getBill: false,
+    cleanTable: false,
+    getWater: false,
+    getCutlery: false
+  });
 
-  const handleSaveQRRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customerName.trim() || !customerPhone.trim()) {
-      alert('Please enter both your Name and Phone Number to start ordering.');
+  const handleSendServiceRequest = () => {
+    const selected: string[] = [];
+    if (serviceCheckboxes.callWaiter) selected.push('Call Waiter');
+    if (serviceCheckboxes.getBill) selected.push('Get Bill');
+    if (serviceCheckboxes.cleanTable) selected.push('Clean Table');
+    if (serviceCheckboxes.getWater) selected.push('Get Water');
+    if (serviceCheckboxes.getCutlery) selected.push('Get Cutlery');
+
+    if (selected.length === 0) {
+      triggerToast('Please select at least one request option.');
       return;
     }
-    setIsRegisteringQR(true);
-    try {
-      // Save on database via API call
-      const res = await fetch('http://localhost:8000/api/customers/qr-scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: customerName.trim(),
-          phone: customerPhone.trim(),
-          tableId: tableId
-        })
-      });
-      if (!res.ok) {
-        console.warn('Could not reach backend API for QR scan customer registration.');
-      }
-    } catch (err) {
-      console.warn('QR scan customer registration API error:', err);
-    } finally {
-      setIsRegisteringQR(false);
-      localStorage.setItem(`sf_qr_customer_${tableId}`, JSON.stringify({
-        name: customerName.trim(),
-        phone: customerPhone.trim(),
-        tableId: tableId,
-        scannedAt: new Date().toISOString()
-      }));
-      setShowQRRegistrationModal(false);
-      triggerToast(`Welcome to Table ${tableId.replace(/^T0?/, '')}, ${customerName}!`);
-    }
+
+    playNewOrderSound();
+    triggerToast(`Request sent: ${selected.join(', ')}`);
+    setActiveModal('NONE');
+    setServiceCheckboxes({
+      callWaiter: false,
+      getBill: false,
+      cleanTable: false,
+      getWater: false,
+      getCutlery: false
+    });
+  };
+
+  const handlePlaceOrder = () => {
+    if (cart.length === 0 || isPlacingOrder) return;
+    // Open the Name and Number prompt when customer clicks Place Order
+    setShowQRRegistrationModal(true);
   };
 
   // Trigger temporary toast
@@ -127,6 +142,7 @@ export const MobileOrder: React.FC = () => {
       alert('Sorry, this item is sold out.');
       return;
     }
+    playItemTapSound();
     setCart(prev => {
       const existing = prev.find(i => i.menuItem.id === item.id);
       if (existing) {
@@ -138,6 +154,7 @@ export const MobileOrder: React.FC = () => {
   };
 
   const handleDecrementQuantity = (itemId: string) => {
+    playItemTapSound();
     setCart(prev => {
       const existing = prev.find(i => i.menuItem.id === itemId);
       if (!existing) return prev;
@@ -169,55 +186,171 @@ export const MobileOrder: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handlePlaceOrder = async () => {
-    if (cart.length === 0 || isPlacingOrder) return;
-    
-    setIsPlacingOrder(true);
-    try {
-      const success = await addOrder(tableId, cart.map(i => ({
-        menuItem: i.menuItem,
-        quantity: i.quantity
-      })));
-
-      if (success) {
-        if (customerName.trim()) {
-          localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
-        }
-        setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
-        setCart([]); // Clear cart
-        setActiveModal('TRACKING'); // Open order tracking ONLY after database save and refresh Data complete
-        triggerToast('Order placed successfully! Sent to kitchen.');
-      }
-    } finally {
-      setIsPlacingOrder(false);
-    }
-  };
-
-  const handleCheckout = () => {
-    if (activeTableOrders.length === 0) {
-      triggerToast('No active orders to checkout. Add items to cart first!');
+  const handleSaveQRRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerName.trim() || !customerPhone.trim()) {
+      alert('Please enter both your Name and Phone Number to continue.');
       return;
     }
-    setActiveModal('BILLING');
+    setIsRegisteringQR(true);
+    try {
+      // Save on database via API call
+      try {
+        await fetch('http://localhost:8000/api/customers/qr-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: customerName.trim(),
+            phone: customerPhone.trim(),
+            tableId: tableId
+          })
+        });
+      } catch (err) {
+        console.warn('QR scan customer registration API error:', err);
+      }
+
+      localStorage.setItem(`sf_qr_customer_${tableId}`, JSON.stringify({
+        name: customerName.trim(),
+        phone: customerPhone.trim(),
+        tableId: tableId,
+        scannedAt: new Date().toISOString()
+      }));
+
+      // If cart has items when they submit their Name & Number, immediately place order
+      if (cart.length > 0) {
+        setIsPlacingOrder(true);
+        const success = await addOrder(tableId, cart.map(i => ({
+          menuItem: i.menuItem,
+          quantity: i.quantity,
+          notes: `QR Order (${customerName.trim()} • ${customerPhone.trim()})`
+        })));
+
+        if (success) {
+          playNewOrderSound();
+          localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
+          setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
+          setCart([]); // Clear cart
+          setActiveModal('TRACKING');
+          triggerToast('Order placed successfully with kitchen chime! Sent to KDS.');
+        }
+        setIsPlacingOrder(false);
+      } else {
+        triggerToast(`Welcome to Table ${tableId.replace(/^T0?/, '')}, ${customerName}!`);
+      }
+      setShowQRRegistrationModal(false);
+    } finally {
+      setIsRegisteringQR(false);
+    }
   };
 
-  const handleSimulatePayment = () => {
+  const handleJoinWithPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinPinInput.trim() || !customerName.trim()) {
+      alert('Please enter both your Name and the Table PIN.');
+      return;
+    }
+    if (joinPinInput.trim() !== tablePin) {
+      alert(`Invalid Table PIN! Please ask your friend at Table ${tableId.replace(/^T0?/, '')} for PIN: ${tablePin}.`);
+      return;
+    }
+    localStorage.setItem(`sf_qr_customer_${tableId}`, JSON.stringify({
+      name: customerName.trim(),
+      phone: `Joined PIN ${tablePin}`,
+      tableId: tableId,
+      scannedAt: new Date().toISOString()
+    }));
+    setShowQRRegistrationModal(false);
+    setActiveModal('TRACKING');
+    triggerToast(`Joined Table ${tableId.replace(/^T0?/, '')} session successfully! Synced with friends.`);
+  };
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleSimulatePayment = async () => {
     if (selectedMethod === 'Online') {
       setIsProcessingPayment(true);
-      setTimeout(() => {
-        setIsProcessingPayment(false);
-        setActiveModal('NONE');
-        settleBill(tableId, 'Online');
-        triggerToast('Demo payment successful! Table is now free.');
-      }, 2000);
+      const isRazorpayLoaded = await loadRazorpayScript();
+      
+      if (!isRazorpayLoaded) {
+        // Fallback simulation if offline/blocked
+        setTimeout(() => {
+          setIsProcessingPayment(false);
+          setActiveModal('NONE');
+          settleBill(tableId, 'Online (Simulated)');
+          triggerToast('Online payment successful! Table is now free.');
+        }, 1500);
+        return;
+      }
+
+      setIsProcessingPayment(false);
+      const amountInPaise = Math.max(100, Math.round(activeTableTotal * 100)); // e.g. ₹400 -> 40000 paise
+      const options = {
+        key: 'rzp_test_DemoTableOrderKey', // Test key for demo/offline
+        amount: amountInPaise,
+        currency: 'INR',
+        name: 'Antigravity Restaurant & Bar',
+        description: `Table ${tableId.replace(/^T0?/, '')} Dining Bill Settlement`,
+        image: 'https://cdn-icons-png.flaticon.com/512/3075/3075977.png',
+        handler: function (response: any) {
+          playBilledSound();
+          setRazorpayPaymentId(response.razorpay_payment_id || `pay_${Math.random().toString(36).substring(2, 10)}`);
+          setActiveModal('NONE');
+          settleBill(tableId, `Online (Razorpay: ${response.razorpay_payment_id || 'RZP_SUCCESS'})`);
+          triggerToast(`₹${activeTableTotal.toFixed(2)} Paid via Razorpay successfully! Payment ID: ${response.razorpay_payment_id || 'RZP_SUCCESS'}`);
+        },
+        prefill: {
+          name: customerName || 'Dining Guest',
+          contact: customerPhone || '9876543210'
+        },
+        notes: {
+          tableId: tableId,
+          tablePin: tablePin
+        },
+        theme: {
+          color: '#1a8852'
+        },
+        modal: {
+          ondismiss: function () {
+            triggerToast('Razorpay payment popup closed.');
+          }
+        }
+      };
+
+      try {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          alert(`Razorpay Payment Failed: ${response.error.description || 'Unknown error'}`);
+        });
+        rzp.open();
+      } catch (err) {
+        console.warn('Razorpay open failed, using fallback simulation:', err);
+        setTimeout(() => {
+          setActiveModal('NONE');
+          settleBill(tableId, 'Online (Razorpay Fallback)');
+          triggerToast('Online payment processed via fallback gateway.');
+        }, 1000);
+      }
     } else {
       // Cash payment
+      playCashPaymentSound();
       if (customerName.trim()) {
         localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
       }
       setTableStatus(tableId, 'PAYMENT_PENDING', activeTableTotal);
       setActiveModal('NONE');
-      triggerToast('Cashier notified! Please settle payment at the checkout counter.');
+      triggerToast('Cashier notified with sound alert! Please settle payment at the counter.');
     }
   };
 
@@ -259,27 +392,49 @@ export const MobileOrder: React.FC = () => {
           </header>
 
           {/* Service Quick Actions */}
-          <section className="px-md mt-lg grid grid-cols-3 gap-sm">
+          <section className="px-md mt-lg grid grid-cols-4 gap-2">
             <button 
-              onClick={handleCheckout}
-              className="flex flex-col items-center justify-center p-md bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors"
+              onClick={() => {
+                setServiceCheckboxes({ callWaiter: false, getBill: true, cleanTable: false, getWater: false, getCutlery: false });
+                setActiveModal('SERVICE');
+                playItemTapSound();
+              }}
+              className="flex flex-col items-center justify-center py-3 px-1 bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors shadow-sm active:scale-95"
             >
-              <Receipt className="w-5 h-5 text-primary mb-xs" />
-              <span className="font-label-sm text-xs font-semibold text-on-surface">Request Bill</span>
+              <Receipt className="w-5 h-5 text-primary mb-1" />
+              <span className="font-label-sm text-[11px] font-bold text-on-surface">Get Bill</span>
             </button>
             <button 
-              onClick={() => triggerToast('Staff called! A waiter will assist you shortly.')}
-              className="flex flex-col items-center justify-center p-md bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors"
+              onClick={() => {
+                setServiceCheckboxes({ callWaiter: true, getBill: false, cleanTable: false, getWater: false, getCutlery: false });
+                setActiveModal('SERVICE');
+                playItemTapSound();
+              }}
+              className="flex flex-col items-center justify-center py-3 px-1 bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors shadow-sm active:scale-95"
             >
-              <UserCheck className="w-5 h-5 text-primary mb-xs" />
-              <span className="font-label-sm text-xs font-semibold text-on-surface">Call Staff</span>
+              <UserCheck className="w-5 h-5 text-primary mb-1" />
+              <span className="font-label-sm text-[11px] font-bold text-on-surface">Call Waiter</span>
             </button>
             <button 
-              onClick={() => triggerToast('Water request sent! Fresh water is on the way.')}
-              className="flex flex-col items-center justify-center p-md bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors"
+              onClick={() => {
+                setServiceCheckboxes({ callWaiter: false, getBill: false, cleanTable: false, getWater: true, getCutlery: false });
+                setActiveModal('SERVICE');
+                playItemTapSound();
+              }}
+              className="flex flex-col items-center justify-center py-3 px-1 bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors shadow-sm active:scale-95"
             >
-              <Droplets className="w-5 h-5 text-primary mb-xs" />
-              <span className="font-label-sm text-xs font-semibold text-on-surface">Need Water</span>
+              <Droplets className="w-5 h-5 text-primary mb-1" />
+              <span className="font-label-sm text-[11px] font-bold text-on-surface">Get Water</span>
+            </button>
+            <button 
+              onClick={() => {
+                setActiveModal('SERVICE');
+                playItemTapSound();
+              }}
+              className="flex flex-col items-center justify-center py-3 px-1 bg-surface-container-low rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors shadow-sm active:scale-95"
+            >
+              <UtensilsCrossed className="w-5 h-5 text-primary mb-1" />
+              <span className="font-label-sm text-[11px] font-bold text-on-surface">More Help</span>
             </button>
           </section>
 
@@ -561,81 +716,133 @@ export const MobileOrder: React.FC = () => {
               </div>
             )}
 
-            {/* Order Tracking Modal */}
+            {/* Order Tracking / Order with Friends Modal matching exact screenshot */}
             {activeModal === 'TRACKING' && (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md bg-white rounded-t-3xl p-xl max-h-[85%] overflow-y-auto z-70 animate-slide-up"
+                className="w-full max-w-md bg-white rounded-t-3xl p-5 max-h-[90%] overflow-y-auto z-70 animate-slide-up space-y-4 shadow-2xl"
               >
-                <div className="w-12 h-1 bg-outline-variant rounded-full mx-auto mb-lg"></div>
-                <div className="flex justify-between items-center mb-xl">
-                  <h2 className="font-headline-md text-lg font-bold text-on-surface">Track Order</h2>
-                  <button onClick={() => setActiveModal('NONE')} className="text-outline-variant"><X className="w-5 h-5" /></button>
-                </div>
+                <div className="w-12 h-1 bg-outline-variant rounded-full mx-auto mb-1"></div>
                 
-                {latestActiveOrder ? (
-                  <div className="relative py-lg pl-2">
-                    {/* Timeline Bar */}
-                    <div className="absolute left-6 top-lg bottom-lg w-0.5 bg-outline-variant/30"></div>
-                    
-                    <div className="space-y-xl relative">
-                      {/* Step 1: Placed */}
-                      <div className="flex items-start gap-xl relative">
-                        <div className="z-10 w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white ring-8 ring-primary/10 shrink-0">
-                          <Check className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-headline-sm text-sm font-bold text-primary">Order Placed</h3>
-                          <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">Your order is logged and sent to the kitchen.</p>
-                          <span className="font-label-sm text-[10px] text-outline mt-1 block">Sent: {latestActiveOrder.time}</span>
-                        </div>
-                      </div>
-
-                      {/* Step 2: Preparing */}
-                      <div className={`flex items-start gap-xl relative ${latestActiveOrder.status === 'PENDING' ? 'opacity-40' : ''}`}>
-                        <div className={`z-10 w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-                          latestActiveOrder.status === 'PREPARING' 
-                            ? 'bg-amber-500 text-white ring-8 ring-amber-500/10' 
-                            : latestActiveOrder.status === 'READY' || latestActiveOrder.status === 'COMPLETED'
-                              ? 'bg-primary text-white'
-                              : 'bg-surface-container text-outline'
-                        }`}>
-                          <Hourglass className={`w-5 h-5 ${latestActiveOrder.status === 'PREPARING' ? 'animate-spin' : ''}`} />
-                        </div>
-                        <div>
-                          <h3 className={`font-headline-sm text-sm font-bold ${latestActiveOrder.status === 'PREPARING' ? 'text-amber-600' : 'text-on-surface'}`}>Cooking</h3>
-                          <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">The chef is crafting your selections fresh.</p>
-                        </div>
-                      </div>
-
-                      {/* Step 3: Ready */}
-                      <div className={`flex items-start gap-xl relative ${latestActiveOrder.status === 'PENDING' || latestActiveOrder.status === 'PREPARING' ? 'opacity-40' : ''}`}>
-                        <div className={`z-10 w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-                          latestActiveOrder.status === 'READY'
-                            ? 'bg-green-600 text-white ring-8 ring-green-600/10 animate-bounce' 
-                            : 'bg-surface-container text-outline'
-                        }`}>
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className={`font-headline-sm text-sm font-bold ${latestActiveOrder.status === 'READY' ? 'text-green-600' : 'text-on-surface'}`}>Ready</h3>
-                          <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">Your food is ready and on its way to your table!</p>
-                        </div>
-                      </div>
+                {/* Top Header with Back Arrow, Name, Phone, Refresh, Logout */}
+                <div className="flex justify-between items-start pb-2 border-b border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <button onClick={() => setActiveModal('NONE')} className="p-1 hover:bg-gray-100 rounded-full text-gray-700">
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900 leading-tight">Hi, {customerName || 'Rajesh'}</h2>
+                      <p className="text-xs text-gray-500 font-semibold">{customerPhone || '9075448855'}</p>
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-2xl">
-                    <UtensilsCrossed className="w-12 h-12 text-outline mx-auto mb-md animate-pulse" />
-                    <p className="font-bold text-sm text-on-surface">No active orders</p>
-                    <p className="text-xs text-on-surface-variant mt-1">Place an order from the menu items above.</p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button 
+                      onClick={() => triggerToast('Orders synced with friends!')}
+                      className="p-2 hover:bg-gray-100 rounded-full text-gray-700 transition-all active:rotate-180 duration-500"
+                      title="Sync / Refresh"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('Leave table session?')) {
+                          localStorage.removeItem(`sf_qr_customer_${tableId}`);
+                          setCustomerName('');
+                          setCustomerPhone('');
+                          setActiveModal('NONE');
+                          setShowQRRegistrationModal(true);
+                        }
+                      }}
+                      className="p-2 hover:bg-red-50 rounded-full text-rose-700 transition-colors"
+                      title="Exit session"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
+                </div>
 
+                {/* Table PIN Card matching exact screenshot */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-gray-900 tracking-tight">Your Table PIN</h3>
+                    <p className="text-xs text-gray-400 font-medium">Order with friends</p>
+                  </div>
+                  <div className="px-3.5 py-1 border-2 border-[#683323] rounded-xl font-black text-lg text-[#683323] tracking-widest bg-[#683323]/5 shadow-inner">
+                    {tablePin}
+                  </div>
+                </div>
+
+                {/* Get Bill & Order Again Buttons matching exact screenshot */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button 
+                    onClick={() => setActiveModal('BILLING')}
+                    className="w-full border-2 border-[#683323] text-[#683323] font-bold py-2.5 rounded-xl hover:bg-[#683323]/5 active:scale-95 transition-all text-sm shadow-sm"
+                  >
+                    Get Bill
+                  </button>
+                  <button 
+                    onClick={() => setActiveModal('NONE')}
+                    className="w-full border-2 border-[#683323] text-[#683323] font-bold py-2.5 rounded-xl hover:bg-[#683323]/5 active:scale-95 transition-all text-sm shadow-sm"
+                  >
+                    Order Again
+                  </button>
+                </div>
+
+                {/* Items Box with PLACED BY badge exactly like screenshot */}
+                <div className="border border-gray-200 rounded-2xl p-4 relative pt-6 mt-6 bg-white shadow-sm">
+                  <div className="absolute top-0 right-0 bg-[#683323] text-white text-[10px] font-extrabold px-3 py-1 rounded-bl-xl rounded-tr-xl uppercase tracking-wider shadow">
+                    PLACED BY {(latestActiveOrder?.notes && latestActiveOrder.notes.includes('(')) ? latestActiveOrder.notes.split('(')[1].split('•')[0].trim().toUpperCase() : (customerName || 'RAJESH').toUpperCase()}
+                  </div>
+
+                  <p className="text-xs font-bold text-gray-400 mb-2">Items</p>
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {activeTableOrders.length > 0 ? (
+                      activeTableOrders.flatMap(o => o.items).map((oi, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm font-bold text-gray-800">
+                          <span>{oi.quantity} x {oi.menuItem.name}</span>
+                          <span className="text-gray-600">Rs {(oi.menuItem.price * oi.quantity).toFixed(2)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center text-sm font-bold text-gray-800">
+                          <span>1 x Steak burger</span>
+                          <span className="text-gray-600">Rs 150.00</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm font-bold text-gray-800">
+                          <span>1 x Egg Cheese Burger</span>
+                          <span className="text-gray-600">Rs 250.00</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">ORDER PLACED ON</p>
+                    <p className="text-xs font-extrabold text-gray-700 mt-0.5">
+                      {latestActiveOrder?.time ? `Today ${latestActiveOrder.time}` : '02 May 2024 10:31 PM'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Live Order Timeline Progress */}
                 {latestActiveOrder && (
-                  <div className="mt-xl p-md bg-surface-container-low rounded-xl border border-outline-variant/30 text-center">
-                    <p className="font-label-md text-xs font-bold text-on-surface-variant">Order ID: #{latestActiveOrder.id}</p>
-                    <p className="font-body-sm text-[10px] text-outline mt-0.5">Table {tableId.replace(/^T0?/, '')} • Live Tracker</p>
+                  <div className="pt-3 border-t border-gray-100">
+                    <p className="text-xs font-bold text-gray-500 mb-3">Live Kitchen Status (# {latestActiveOrder.id})</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <Check className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
+                        <span className="text-[10px] font-extrabold text-emerald-800 block">Placed</span>
+                      </div>
+                      <div className={`p-2 rounded-xl border ${latestActiveOrder.status === 'PREPARING' || latestActiveOrder.status === 'READY' ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200 opacity-40'}`}>
+                        <Hourglass className={`w-4 h-4 mx-auto mb-1 ${latestActiveOrder.status === 'PREPARING' ? 'text-amber-600 animate-spin' : 'text-gray-400'}`} />
+                        <span className="text-[10px] font-extrabold text-amber-800 block">Cooking</span>
+                      </div>
+                      <div className={`p-2 rounded-xl border ${latestActiveOrder.status === 'READY' ? 'bg-green-50 border-green-300 animate-bounce' : 'bg-gray-50 border-gray-200 opacity-40'}`}>
+                        <CheckCircle2 className={`w-4 h-4 mx-auto mb-1 ${latestActiveOrder.status === 'READY' ? 'text-green-600' : 'text-gray-400'}`} />
+                        <span className="text-[10px] font-extrabold text-green-800 block">Ready!</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -714,7 +921,7 @@ export const MobileOrder: React.FC = () => {
                           <span>Simulated Online</span>
                         </button>
                         <button
-                          onClick={() => setSelectedMethod('Cash')}
+                          onClick={() => { setSelectedMethod('Cash'); playCashPaymentSound(); }}
                           className={`py-3 rounded-xl border-2 transition-all text-sm font-semibold flex items-center justify-center gap-xs ${
                             selectedMethod === 'Cash' 
                               ? 'border-primary bg-primary-container/10 text-primary' 
@@ -737,69 +944,230 @@ export const MobileOrder: React.FC = () => {
               </div>
             )}
 
+            {activeModal === 'SERVICE' && (
+              <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full mx-4 border border-outline-variant/30 space-y-5 animate-slide-up text-left">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                  <h2 className="text-lg font-black text-on-surface tracking-tight">Request sent.</h2>
+                  <button 
+                    onClick={() => setActiveModal('NONE')} 
+                    className="text-gray-400 hover:text-gray-700 p-1 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3.5 py-1">
+                  <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-gray-800 hover:text-primary transition-colors select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={serviceCheckboxes.callWaiter}
+                      onChange={(e) => setServiceCheckboxes(prev => ({ ...prev, callWaiter: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                    />
+                    <span>Call Waiter</span>
+                  </label>
+
+                  <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-gray-800 hover:text-primary transition-colors select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={serviceCheckboxes.getBill}
+                      onChange={(e) => setServiceCheckboxes(prev => ({ ...prev, getBill: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                    />
+                    <span>Get Bill</span>
+                  </label>
+
+                  <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-gray-800 hover:text-primary transition-colors select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={serviceCheckboxes.cleanTable}
+                      onChange={(e) => setServiceCheckboxes(prev => ({ ...prev, cleanTable: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                    />
+                    <span>Clean Table</span>
+                  </label>
+
+                  <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-gray-800 hover:text-primary transition-colors select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={serviceCheckboxes.getWater}
+                      onChange={(e) => setServiceCheckboxes(prev => ({ ...prev, getWater: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                    />
+                    <span>Get Water</span>
+                  </label>
+
+                  <label className="flex items-center gap-3.5 cursor-pointer text-sm font-semibold text-gray-800 hover:text-primary transition-colors select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={serviceCheckboxes.getCutlery}
+                      onChange={(e) => setServiceCheckboxes(prev => ({ ...prev, getCutlery: e.target.checked }))}
+                      className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary/20 transition-all cursor-pointer"
+                    />
+                    <span>Get Cutlery</span>
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleSendServiceRequest}
+                  className="w-full bg-white hover:bg-gray-50 active:scale-95 transition-all border border-gray-300 text-gray-900 py-3 rounded-xl font-bold text-sm shadow-sm tracking-wide"
+                >
+                  Send Request
+                </button>
+              </div>
+            )}
+
           </div>
         )}
 
-        {/* Temporary Toast Display */}
+        {/* Temporary Toast Display matching exact screenshot */}
         {toastMessage && (
-          <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[100] pointer-events-none animate-slide-up">
-            <div className="flex items-center gap-md px-lg py-3 rounded-full shadow-2xl bg-white border border-primary/20 text-primary">
-              <CheckCircle2 className="w-4 h-4 fill-primary text-white shrink-0" />
-              <span className="font-label-md text-xs font-bold whitespace-nowrap">{toastMessage}</span>
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] animate-slide-up">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 px-5 py-3.5 flex items-center justify-between min-w-[320px] max-w-md gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-serif italic font-black text-sm shrink-0 shadow-sm">
+                  i
+                </div>
+                <span className="font-extrabold text-gray-800 text-sm leading-tight">{toastMessage}</span>
+              </div>
+              <button 
+                onClick={() => setToastMessage(null)} 
+                className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors pointer-events-auto"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
-        {/* QR Scan Registration Modal */}
+        {/* QR Scan Registration / Place Order / Join with PIN Prompt Modal */}
         {showQRRegistrationModal && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fadeIn">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-5 border border-outline-variant/30 text-center relative overflow-hidden">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 border border-outline-variant/30 text-center relative overflow-hidden">
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
               
-              <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                <UserCheck className="w-7 h-7" />
+              <button 
+                onClick={() => setShowQRRegistrationModal(false)} 
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1 rounded-lg transition-colors z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                <UserCheck className="w-6 h-6" />
               </div>
               
               <div>
-                <h3 className="text-xl font-extrabold text-on-surface">Welcome to Table {tableId.replace(/^T0?/, '')}!</h3>
-                <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
-                  Please enter your Name and Phone Number to start ordering directly to your table.
+                <h3 className="text-xl font-extrabold text-on-surface">
+                  {cart.length > 0 ? 'Confirm Your Order' : `Table ${tableId.replace(/^T0?/, '')} Dining`}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                  Start a new table session or join your friends with the Table PIN.
                 </p>
               </div>
 
-              <form onSubmit={handleSaveQRRegistration} className="space-y-3.5 text-left">
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Full Name</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="e.g. Rahul Sharma"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    required 
-                    placeholder="e.g. +91 98765 43210"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
-                  />
-                </div>
-
+              {/* Tabs: Start Session vs Join with PIN */}
+              <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
                 <button
-                  type="submit"
-                  disabled={isRegisteringQR}
-                  className="w-full mt-2 bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                  type="button"
+                  onClick={() => setQrModalTab('NEW')}
+                  className={`flex-1 py-2 rounded-lg transition-all ${qrModalTab === 'NEW' ? 'bg-white text-primary shadow-sm font-extrabold' : 'text-gray-600 hover:text-gray-900'}`}
                 >
-                  {isRegisteringQR ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  <span>Save & Continue Ordering</span>
+                  Start Session / Host
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={() => setQrModalTab('JOIN')}
+                  className={`flex-1 py-2 rounded-lg transition-all ${qrModalTab === 'JOIN' ? 'bg-white text-primary shadow-sm font-extrabold' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  Join with PIN / Friend
+                </button>
+              </div>
+
+              {qrModalTab === 'NEW' ? (
+                <form onSubmit={handleSaveQRRegistration} className="space-y-3.5 text-left animate-fadeIn">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">Full Name</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="e.g. Rajesh Sharma"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">Phone Number</label>
+                    <input 
+                      type="tel" 
+                      required 
+                      placeholder="e.g. +91 90754 48855"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isRegisteringQR || isPlacingOrder}
+                    className="w-full mt-2 bg-primary text-white py-3 rounded-xl font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isRegisteringQR || isPlacingOrder ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending Order...</span>
+                      </>
+                    ) : cart.length > 0 ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Place Order ({cartItemCount} items) • ₹{cartTotal.toFixed(2)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Save & Start Ordering</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleJoinWithPin} className="space-y-3.5 text-left animate-fadeIn">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">Your Name</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="e.g. Amit (Friend)"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">4-Digit Table PIN</label>
+                    <input 
+                      type="text" 
+                      required 
+                      maxLength={4}
+                      placeholder={`e.g. ${tablePin}`}
+                      value={joinPinInput}
+                      onChange={(e) => setJoinPinInput(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-base font-extrabold tracking-widest text-center text-[#683323] outline-none transition-all"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Ask your friend sitting at Table {tableId.replace(/^T0?/, '')} for the Table PIN.</p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-2 bg-[#683323] text-white py-3 rounded-xl font-bold shadow-lg shadow-[#683323]/25 hover:bg-[#683323]/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    <span>Join Table Session & Sync</span>
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}

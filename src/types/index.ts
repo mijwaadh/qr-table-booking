@@ -27,6 +27,7 @@ export interface Order {
   time: string;
   elapsedMinutes: number;
   allergyAlert?: string;
+  notes?: string;
 }
 
 export interface Table {

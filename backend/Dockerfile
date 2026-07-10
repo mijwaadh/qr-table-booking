@@ -18,5 +18,5 @@ COPY . ./backend
 # Expose port (default FastAPI)
 EXPOSE 8000
 
-# Run uvicorn server from the parent folder so absolute/relative package imports work
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run uvicorn server dynamically on Render $PORT or default 8000
+CMD sh -c "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"

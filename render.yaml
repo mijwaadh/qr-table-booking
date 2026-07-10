@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: serveflow-backend
+    runtime: docker
+    dockerfilePath: Dockerfile
+    dockerContext: backend
+    envVars:
+      - key: PORT
+        value: 10000

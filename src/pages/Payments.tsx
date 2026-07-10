@@ -20,6 +20,7 @@ import {
   Search
 } from 'lucide-react';
 import type { MenuItem } from '../types';
+import { playBilledSound, playCashPaymentSound, playItemTapSound, playNewOrderSound } from '../utils/audioAlerts';
 
 export const Payments: React.FC = () => {
   const { tables, orders, menuItems, settleBill, addOrder } = useRestaurant();
@@ -114,6 +115,7 @@ export const Payments: React.FC = () => {
   };
 
   const handlePrintAndSettle = () => {
+    playBilledSound();
     handleGenerateBill();
     setTimeout(() => {
       if (currentTable) settleBill(currentTable.id, selectedMethod);
@@ -122,6 +124,7 @@ export const Payments: React.FC = () => {
   };
 
   const handleCheckoutConfirm = () => {
+    playBilledSound();
     if (currentTable) {
       settleBill(currentTable.id, selectedMethod);
     }
@@ -138,6 +141,7 @@ export const Payments: React.FC = () => {
 
   // Quick Bill Take-Away actions
   const handleAddParcelItem = (item: MenuItem) => {
+    playItemTapSound();
     setParcelCart(prev => {
       const existing = prev.find(i => i.menuItem.id === item.id);
       if (existing) {
@@ -148,6 +152,7 @@ export const Payments: React.FC = () => {
   };
 
   const handleRemoveParcelItem = (itemId: string) => {
+    playItemTapSound();
     setParcelCart(prev => {
       const existing = prev.find(i => i.menuItem.id === itemId);
       if (!existing) return prev;
@@ -164,12 +169,15 @@ export const Payments: React.FC = () => {
       return;
     }
     if (sendKOTToKitchen) {
+      playNewOrderSound();
       // Record parcel order and send KOT to kitchen KDS
       await addOrder('Take-Away', parcelCart.map(i => ({
         menuItem: i.menuItem,
         quantity: i.quantity,
         notes: `Take-Away (${parcelCustomerName}) - KOT Sent`
       })));
+    } else {
+      playBilledSound();
     }
 
     setPreviewOrderData({
@@ -409,7 +417,7 @@ export const Payments: React.FC = () => {
                       <span className="font-label-md text-xs font-semibold">Card</span>
                     </button>
                     <button 
-                      onClick={() => setSelectedMethod('Cash')}
+                      onClick={() => { setSelectedMethod('Cash'); playCashPaymentSound(); }}
                       className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
                         selectedMethod === 'Cash' ? 'border-primary bg-primary-container/10 text-primary font-bold' : 'border-outline-variant text-on-surface-variant hover:border-outline'
                       }`}

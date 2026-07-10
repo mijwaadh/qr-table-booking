@@ -11,7 +11,8 @@ import {
   ChefHat,
   Smartphone,
   Sparkles,
-  Brain
+  Brain,
+  Wallet
 } from 'lucide-react';
 
 export const SideNavBar: React.FC = () => {
@@ -28,6 +29,7 @@ export const SideNavBar: React.FC = () => {
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/billing', label: 'Payments', icon: CreditCard },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
+    { to: '/expenses', label: 'Expenses', icon: Wallet },
     { to: '/ai-intelligence', label: 'AI Intelligence', icon: Brain },
     { to: '/kds', label: 'Kitchen KDS', icon: ChefHat },
     { to: '/order-now', label: 'Mobile Order', icon: Smartphone },

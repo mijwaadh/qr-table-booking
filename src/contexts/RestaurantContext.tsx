@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { Table, Order, MenuItem } from '../types';
 import { calculateElapsedMinutes } from '../utils/time';
+import { X } from 'lucide-react';
+import { playNewOrderSound, playItemTapSound, playBilledSound, playKOTReadySound } from '../utils/audioAlerts';
 
 interface RestaurantContextType {
   tables: Table[];
@@ -16,6 +18,7 @@ interface RestaurantContextType {
   updateMenuItem: (item: MenuItem) => Promise<boolean>;
   settleBill: (tableId: string, method?: string) => void;
   addTable: (name: string, seats: number) => void;
+  showGlobalNotification: (message: string) => void;
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -28,6 +31,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [globalToast, setGlobalToast] = useState<string | null>(null);
+
+  const showGlobalNotification = (message: string) => {
+    setGlobalToast(message);
+    setTimeout(() => setGlobalToast(null), 4500);
+  };
 
   const refreshData = async () => {
     try {
@@ -140,6 +149,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        playNewOrderSound();
+        showGlobalNotification('New order placed & KOT sent to Kitchen!');
         return true;
       } else {
         const err = await response.json().catch(() => ({ detail: response.statusText }));
@@ -155,6 +166,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const updateOrderStatus = async (orderId: string, status: Order['status']) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    if (status === 'READY') {
+      playKOTReadySound();
+    } else if (status === 'COMPLETED') {
+      playBilledSound();
+    } else {
+      playItemTapSound();
+    }
+    showGlobalNotification('KOT status updated from KDS');
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
         method: 'PUT',
@@ -176,6 +195,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const updatedItems = o.items.map((item, idx) => idx === itemIndex ? { ...item, completed: !item.completed } : item);
       return { ...o, items: updatedItems };
     }));
+    playItemTapSound();
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${orderId}/items/${itemIndex}/toggle`, {
         method: 'PUT'
@@ -191,6 +211,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const setTableStatus = async (tableId: string, status: Table['status'], amount?: number) => {
     setTables(prev => prev.map(t => t.id === tableId ? { ...t, status, amount: amount !== undefined ? amount : t.amount } : t));
+    playItemTapSound();
+    showGlobalNotification(`Table status updated to ${status.replace(/_/g, ' ')}`);
     try {
       const response = await fetch(`${API_BASE_URL}/tables/${tableId}`, {
         method: 'PUT',
@@ -293,6 +315,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const serviceCharge = Math.round((subtotal * 0.10) * 100) / 100;
     const total = Math.round((subtotal + gst + serviceCharge) * 100) / 100;
 
+    playBilledSound();
+    showGlobalNotification(`Bill settled (${method}) • ₹${total.toFixed(2)}`);
+
     try {
       const response = await fetch(`${API_BASE_URL}/payments/settle`, {
         method: 'POST',
@@ -324,6 +349,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
       if (response.ok) {
         await refreshData();
+        playItemTapSound();
+        showGlobalNotification(`Table "${name}" added with ${seats} seats`);
       }
     } catch (e) {
       console.error(e);
@@ -345,10 +372,29 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         deleteMenuItem,
         updateMenuItem,
         settleBill,
-        addTable
+        addTable,
+        showGlobalNotification
       }}
     >
       {children}
+      {globalToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999999] animate-slide-up">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 px-5 py-3.5 flex items-center justify-between min-w-[320px] max-w-md gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-full bg-[#1a73e8] text-white flex items-center justify-center font-serif italic font-black text-sm shrink-0 shadow-sm">
+                i
+              </div>
+              <span className="font-extrabold text-gray-800 text-sm leading-tight">{globalToast}</span>
+            </div>
+            <button 
+              onClick={() => setGlobalToast(null)} 
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-full transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </RestaurantContext.Provider>
   );
 };
