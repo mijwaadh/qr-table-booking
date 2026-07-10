@@ -258,48 +258,48 @@ export const Tables: React.FC = () => {
               
               // Color rules requested by user: Green if available, Blue if ordered, Black if billed
               const cardBg = isBilled 
-                ? 'bg-[#333136] text-white border-2 border-amber-500 shadow-lg' 
+                ? 'bg-slate-800 text-white border border-slate-700 shadow-2xs' 
                 : isOrdered 
-                ? 'bg-[#0e86d4] text-white border border-sky-400 shadow-md' 
-                : 'bg-[#1a8852] text-white border border-emerald-500/80 shadow-sm';
+                ? 'bg-sky-700 text-white border border-sky-600 shadow-2xs' 
+                : 'bg-emerald-700 text-white border border-emerald-600 shadow-2xs';
 
               const isSelected = activeTableForSide?.id === table.id;
-              const borderRing = isSelected ? 'ring-4 ring-amber-400 border-amber-300' : '';
+              const borderRing = isSelected ? 'ring-2 ring-slate-400 border-slate-300' : '';
 
               return (
                 <div 
                   key={table.id}
                   onClick={() => handleCardClick(table)}
-                  className={`${cardBg} ${borderRing} rounded-2xl p-3 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-95`}
+                  className={`${cardBg} ${borderRing} rounded-xl p-3 min-h-[84px] flex flex-col justify-between cursor-pointer transition-all hover:opacity-95 active:scale-98 font-sans`}
                 >
                   <div className="flex justify-between items-start gap-1">
-                    <span className="font-extrabold text-sm truncate leading-snug">{customName}</span>
+                    <span className="font-medium text-xs truncate leading-snug">{customName}</span>
                     {isBilled && (
-                      <span className="text-[10px] font-bold bg-amber-500/30 border border-amber-400/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
-                        Bill No: {table.id.replace(/^T0?/, '') || 6}
+                      <span className="text-[10px] font-normal bg-white/15 border border-white/20 px-1.5 py-0.5 rounded text-gray-100 shrink-0">
+                        Bill #{table.id.replace(/^T0?/, '') || 6}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex justify-between items-end mt-2 pt-1 border-t border-white/10">
+                  <div className="flex justify-between items-end mt-2 pt-1 border-t border-white/10 text-xs">
                     {table.status === 'AVAILABLE' ? (
                       <>
-                        <span className="text-xs font-medium opacity-90">{table.seats} Seats</span>
+                        <span className="text-[11px] font-normal opacity-90">{table.seats} Seats</span>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleShowQRModal(table.id, customName);
                           }}
-                          className="text-[10px] font-bold bg-white/20 hover:bg-white/40 px-1.5 py-0.5 rounded transition-colors"
+                          className="text-[10px] font-medium bg-white/20 hover:bg-white/35 px-1.5 py-0.5 rounded transition-colors"
                         >
                           QR
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="text-[11px] opacity-85">{table.elapsedMinutes || 20}m</span>
-                        <span className="font-extrabold text-sm">Rs {(table.amount || 0).toFixed(2)}</span>
+                        <span className="text-[11px] font-normal opacity-85">{table.elapsedMinutes || 20}m</span>
+                        <span className="font-semibold text-xs">₹{(table.amount || 0).toFixed(2)}</span>
                       </>
                     )}
                   </div>
@@ -329,56 +329,56 @@ export const Tables: React.FC = () => {
             const displayTotal = activeTableForSide.amount && activeTableForSide.amount > 0 ? activeTableForSide.amount : displayItems.reduce((acc, i) => acc + i.menuItem.price * i.quantity, 0);
 
             return (
-              <div className="w-full xl:w-[440px] shrink-0 bg-white border border-outline-variant rounded-2xl shadow-2xl overflow-hidden flex flex-col sticky top-20 animate-fadeIn">
+              <div className="w-full xl:w-[440px] shrink-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden flex flex-col sticky top-20 animate-fadeIn font-sans">
                 {/* Top Tabs: Order/KOT | Billing */}
-                <div className="flex bg-gray-100 text-xs font-bold border-b border-gray-200">
+                <div className="flex bg-gray-50 text-xs font-normal border-b border-gray-200">
                   <button 
                     onClick={() => setSideTab('KOT')} 
-                    className={`flex-1 py-3 text-center transition-colors ${sideTab === 'KOT' ? 'bg-[#c6f0d8] text-[#1a8852] font-extrabold border-t-2 border-[#1a8852]' : 'text-gray-600 hover:bg-gray-200'}`}
+                    className={`flex-1 py-2.5 text-center transition-colors ${sideTab === 'KOT' ? 'bg-white text-gray-800 font-medium border-t-2 border-slate-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
                   >
                     Order/KOT
                   </button>
                   <button 
                     onClick={() => setSideTab('BILLING')} 
-                    className={`flex-1 py-3 text-center transition-colors ${sideTab === 'BILLING' ? 'bg-[#c6f0d8] text-[#1a8852] font-extrabold border-t-2 border-[#1a8852]' : 'text-gray-600 hover:bg-gray-200'}`}
+                    className={`flex-1 py-2.5 text-center transition-colors ${sideTab === 'BILLING' ? 'bg-white text-gray-800 font-medium border-t-2 border-slate-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
                   >
                     Billing
                   </button>
                 </div>
 
-                {/* Green/Teal Header Bar matching screenshot */}
-                <div className="bg-[#3eb370] text-white px-4 py-3 flex justify-between items-center shadow-inner">
-                  <span className="font-extrabold text-xl tracking-tight">
+                {/* Classic Slate Header Bar */}
+                <div className="bg-slate-800 text-white px-4 py-3 flex justify-between items-center shadow-2xs">
+                  <span className="font-medium text-base tracking-normal">
                     Bill {activeTableForSide.id.replace(/^T0?/, '') || 27}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button 
                       onClick={() => alert('Old KOTs retrieved.')} 
-                      className="bg-white/25 hover:bg-white/35 px-3 py-1 rounded-full text-xs font-bold transition-all"
+                      className="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-2.5 py-1 rounded text-xs font-normal text-gray-200 transition-all"
                     >
                       Old KOT
                     </button>
                     <button 
                       onClick={() => alert('Bill Split tool opened.')} 
-                      className="bg-white/25 hover:bg-white/35 px-3 py-1 rounded-full text-xs font-bold transition-all"
+                      className="bg-slate-700 hover:bg-slate-600 border border-slate-600 px-2.5 py-1 rounded text-xs font-normal text-gray-200 transition-all"
                     >
                       Split Bill
                     </button>
-                    <span className="font-black text-lg ml-1 px-2 py-0.5 bg-white/10 rounded">
-                      Table{activeTableForSide.id.replace(/^T0?/, '')}
+                    <span className="font-medium text-xs ml-1 px-2 py-1 bg-slate-700 rounded border border-slate-600 text-gray-200">
+                      Table {activeTableForSide.id.replace(/^T0?/, '')}
                     </span>
                     <button 
                       onClick={() => setActiveTableForSide(null)}
-                      className="ml-1 p-1 hover:bg-white/20 rounded-full text-white transition-colors"
+                      className="ml-1 p-1 hover:bg-slate-700 rounded text-gray-300 hover:text-white transition-colors"
                       title="Close panel"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
                 {/* Table Header: Item Name | Qty | Amount */}
-                <div className="bg-gray-100/90 border-b border-gray-200 px-4 py-2 text-xs font-bold text-gray-500 grid grid-cols-12">
+                <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 text-xs font-medium text-gray-600 grid grid-cols-12">
                   <span className="col-span-7">Item Name</span>
                   <span className="col-span-2 text-center">Qty</span>
                   <span className="col-span-3 text-right">Amount</span>
@@ -387,26 +387,26 @@ export const Tables: React.FC = () => {
                 {/* Items list */}
                 <div className="divide-y divide-gray-100 max-h-[340px] overflow-y-auto custom-scrollbar bg-white">
                   {displayItems.map((item, idx) => (
-                    <div key={idx} className="px-4 py-3 grid grid-cols-12 text-sm items-center hover:bg-gray-50/80 transition-colors">
-                      <span className="col-span-7 font-semibold text-gray-800 truncate pr-2">{item.menuItem.name}</span>
-                      <span className="col-span-2 text-center text-gray-600 font-bold">{item.quantity}</span>
-                      <span className="col-span-3 text-right font-extrabold text-gray-900">{(item.menuItem.price * item.quantity).toFixed(0)}</span>
+                    <div key={idx} className="px-4 py-2.5 grid grid-cols-12 text-xs items-center hover:bg-gray-50/70 transition-colors">
+                      <span className="col-span-7 font-normal text-gray-800 truncate pr-2">{item.menuItem.name}</span>
+                      <span className="col-span-2 text-center text-gray-600 font-normal">{item.quantity}</span>
+                      <span className="col-span-3 text-right font-medium text-gray-800">{(item.menuItem.price * item.quantity).toFixed(0)}</span>
                     </div>
                   ))}
                   {displayItems.length === 0 && (
-                    <div className="p-8 text-center text-gray-400 text-sm">No items in this order yet.</div>
+                    <div className="p-8 text-center text-gray-400 text-xs">No items in this order yet.</div>
                   )}
                 </div>
 
                 {/* Bottom Total Bar & Action Buttons */}
                 <div className="mt-auto border-t border-gray-200">
-                  {/* Total Bar matching green bar in screenshot */}
-                  <div className="bg-[#1a8852] text-white px-4 py-3 flex items-center justify-between font-extrabold text-lg shadow-md">
-                    <div className="flex items-center gap-3">
-                      <span>Total:</span>
-                      <span className="text-xl tracking-tight">{displayTotal.toFixed(2)}</span>
-                    </div>
+                  {/* Classic Slate Total Bar */}
+                  <div className="bg-slate-800 text-white px-4 py-3 flex items-center justify-between font-medium text-sm">
                     <div className="flex items-center gap-2">
+                      <span className="text-gray-300">Total:</span>
+                      <span className="text-base font-semibold text-white">₹{displayTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
                       <button onClick={() => {
                         setPreviewOrderData({
                           tableId: activeTableForSide.id,
@@ -416,29 +416,29 @@ export const Tables: React.FC = () => {
                           orderType: 'Dine-in'
                         });
                         setShowBillPreview(true);
-                      }} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Preview Bill">
-                        <Eye className="w-4 h-4" />
+                      }} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 text-gray-200 transition-colors" title="Preview Bill">
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => alert('Printing order receipt...')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Print">
-                        <Printer className="w-4 h-4" />
+                      <button onClick={() => alert('Printing order receipt...')} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 text-gray-200 transition-colors" title="Print">
+                        <Printer className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => alert('Discount applied')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white" title="Discount / Tag">
-                        <Tag className="w-4 h-4" />
+                      <button onClick={() => alert('Discount applied')} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 text-gray-200 transition-colors" title="Discount / Tag">
+                        <Tag className="w-3.5 h-3.5" />
                       </button>
-                      <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer ml-1 select-none bg-white/10 px-2 py-1 rounded">
+                      <label className="flex items-center gap-1.5 text-xs font-normal cursor-pointer ml-1 select-none bg-slate-700 px-2.5 py-1 rounded border border-slate-600 text-gray-200 transition-colors">
                         <input 
                           type="checkbox" 
                           checked={isEBillChecked} 
                           onChange={(e) => setIsEBillChecked(e.target.checked)}
-                          className="rounded text-[#1a8852] focus:ring-0 w-3.5 h-3.5"
+                          className="rounded text-slate-800 focus:ring-0 w-3.5 h-3.5"
                         />
                         <span>eBill</span>
                       </label>
                     </div>
                   </div>
 
-                  {/* 3 Action Buttons right below total bar */}
-                  <div className="p-3 bg-gray-900 grid grid-cols-3 gap-2">
+                  {/* 3 Action Buttons right below total bar - clean classic light buttons */}
+                  <div className="p-3 bg-gray-50 grid grid-cols-3 gap-2 border-t border-gray-200">
                     <button 
                       onClick={() => {
                         playBilledSound();
@@ -451,19 +451,19 @@ export const Tables: React.FC = () => {
                         });
                         setShowBillPreview(true);
                       }}
-                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                      className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 py-2 rounded text-xs font-normal shadow-2xs flex items-center justify-center gap-1 transition-all"
                     >
-                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Print & Save Bill</span>
+                      <FileText className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Print & Save</span>
                     </button>
                     <button 
                       onClick={() => {
                         playItemTapSound();
                         setActiveTableModal(activeTableForSide);
                       }}
-                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                      className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 py-2 rounded text-xs font-normal shadow-2xs flex items-center justify-center gap-1 transition-all"
                     >
-                      <IndianRupee className="w-3.5 h-3.5 text-amber-400" />
+                      <IndianRupee className="w-3.5 h-3.5 text-gray-500" />
                       <span>Payment</span>
                     </button>
                     <button 
@@ -472,9 +472,9 @@ export const Tables: React.FC = () => {
                         settleBill(activeTableForSide.id, 'Cash');
                         setActiveTableForSide(null);
                       }}
-                      className="bg-[#2a2b2e] hover:bg-[#383a3f] active:scale-95 transition-all text-white py-3 rounded-lg font-bold text-xs shadow flex items-center justify-center gap-1.5 border border-white/10"
+                      className="bg-slate-800 hover:bg-slate-700 text-white py-2 rounded text-xs font-normal shadow-2xs flex items-center justify-center gap-1 transition-all"
                     >
-                      <Receipt className="w-3.5 h-3.5 text-sky-400" />
+                      <Receipt className="w-3.5 h-3.5 text-gray-300" />
                       <span>Settle Bill</span>
                     </button>
                   </div>
@@ -489,46 +489,46 @@ export const Tables: React.FC = () => {
       {/* Table Settle / View Order Modal with Cash Calculator */}
       {activeTableModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5 border border-outline-variant/30 text-left">
-            <div className="flex justify-between items-start border-b border-outline-variant/20 pb-3">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-5 space-y-4 border border-gray-200 text-left font-sans">
+            <div className="flex justify-between items-start border-b border-gray-200 pb-3">
               <div>
-                <h3 className="text-xl font-extrabold text-on-surface">
+                <h3 className="text-base font-semibold text-gray-900">
                   {localStorage.getItem(`sf_table_name_${activeTableModal.id}`) || activeTableModal.name} ({activeTableModal.id})
                 </h3>
-                <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
-                  Status: <span className="font-bold text-primary">{activeTableModal.status}</span> • Seated: {activeTableModal.elapsedMinutes || 20} mins ago
+                <p className="text-xs text-gray-500 mt-0.5 font-normal">
+                  Status: <span className="font-medium text-slate-700">{activeTableModal.status}</span> • Seated: {activeTableModal.elapsedMinutes || 20} mins ago
                 </p>
               </div>
               <button 
                 onClick={() => setActiveTableModal(null)}
-                className="p-1.5 text-on-surface-variant hover:text-on-surface rounded-lg transition-colors"
+                className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Bill Summary */}
-            <div className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/30 space-y-2">
-              <div className="flex justify-between text-xs text-on-surface-variant">
+            <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+              <div className="flex justify-between text-xs text-gray-600">
                 <span>Subtotal & Taxes</span>
                 <span>Included</span>
               </div>
-              <div className="flex justify-between text-base font-extrabold text-on-surface pt-1 border-t border-outline-variant/30">
+              <div className="flex justify-between text-sm font-semibold text-gray-900 pt-1 border-t border-gray-200">
                 <span>Total Amount Due</span>
-                <span className="text-primary text-xl">₹{(activeTableModal.amount || 0).toFixed(2)}</span>
+                <span className="text-slate-800 text-base">₹{(activeTableModal.amount || 0).toFixed(2)}</span>
               </div>
             </div>
 
             {/* Payment Method Selector */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-on-surface uppercase tracking-wider">Payment Method</label>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">Payment Method</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['UPI', 'Card', 'Cash'] as const).map(pm => (
                   <button
                     key={pm}
                     onClick={() => setTablePaymentMethod(pm)}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                      tablePaymentMethod === pm ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    className={`py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      tablePaymentMethod === pm ? 'bg-slate-800 text-white border-slate-800 shadow-2xs' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
                     {pm}
@@ -537,25 +537,25 @@ export const Tables: React.FC = () => {
               </div>
             </div>
 
-            {/* Cash Calculator Box matching user screenshot requirement */}
+            {/* Cash Calculator Box */}
             {tablePaymentMethod === 'Cash' && (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3 animate-fadeIn">
-                <div className="flex items-center justify-between text-xs font-bold text-on-surface">
+              <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-700">
                   <span>Customer Paid Amount (Cash Received):</span>
-                  <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-amber-500/40 shadow-inner">
-                    <span className="text-gray-500 font-bold">₹</span>
+                  <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-300 shadow-2xs">
+                    <span className="text-gray-400 font-normal">₹</span>
                     <input 
                       type="number" 
                       value={tablePaidAmount} 
                       onChange={(e) => setTablePaidAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                       placeholder="1000"
-                      className="w-20 font-extrabold text-sm text-right bg-transparent outline-none"
+                      className="w-20 font-medium text-xs text-right bg-transparent outline-none text-gray-800"
                     />
                   </div>
                 </div>
-                <div className="flex items-center justify-between text-sm font-extrabold text-on-surface pt-2 border-t border-amber-500/20">
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-800 pt-2 border-t border-gray-200">
                   <span>Return Amount (Balance):</span>
-                  <span className="text-base px-3 py-1 bg-amber-500 text-white rounded-xl shadow-md">
+                  <span className="text-xs px-2.5 py-1 bg-slate-800 text-white rounded shadow-2xs">
                     ₹{tableReturnAmount.toFixed(2)}
                   </span>
                 </div>
@@ -563,12 +563,12 @@ export const Tables: React.FC = () => {
             )}
 
             {/* Modal Actions */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={handleSettleActiveTable}
-                className="bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="bg-slate-800 text-white py-2.5 rounded-lg font-medium text-xs shadow-2xs hover:bg-slate-700 active:scale-98 transition-all flex items-center justify-center gap-1.5"
               >
-                <Receipt className="w-4 h-4" />
+                <Receipt className="w-3.5 h-3.5" />
                 <span>Print & Settle Bill</span>
               </button>
               <button
@@ -589,9 +589,9 @@ export const Tables: React.FC = () => {
                   setActiveTableModal(null);
                   setShowBillPreview(true);
                 }}
-                className="bg-surface-container-high border border-outline-variant text-on-surface py-3 rounded-xl font-bold text-sm hover:bg-surface-container active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="bg-white border border-gray-300 text-gray-700 py-2.5 rounded-lg font-medium text-xs hover:bg-gray-50 active:scale-98 transition-all flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                <Printer className="w-4 h-4 text-outline" />
+                <Printer className="w-3.5 h-3.5 text-gray-500" />
                 <span>Print Receipt</span>
               </button>
             </div>

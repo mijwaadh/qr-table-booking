@@ -154,69 +154,69 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn font-sans">
       <div 
-        className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden flex flex-col border border-outline-variant/30"
+        className="bg-white rounded-xl shadow-xl max-w-sm w-full overflow-hidden flex flex-col border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Title Bar matching screenshot */}
-        <div className="px-5 py-4 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-lowest">
-          <h3 className="font-headline-sm text-lg font-bold text-on-surface">Preview</h3>
+        {/* Top Title Bar */}
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+          <h3 className="text-sm font-semibold text-gray-800">Preview Receipt</h3>
           <button 
             onClick={onClose}
-            className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-lg transition-colors"
+            className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Receipt Body matching exact layout */}
-        <div className="p-6 overflow-y-auto max-h-[75vh] font-mono text-sm text-gray-900 bg-white select-text">
+        {/* Receipt Body matching classic layout */}
+        <div className="p-5 overflow-y-auto max-h-[75vh] font-mono text-xs text-gray-900 bg-white select-text">
           
           {/* Restaurant Header */}
           <div className="text-center space-y-1">
-            <h4 className="font-bold text-base text-black font-sans">Sagar Ratna India</h4>
-            <p className="text-[11px] text-gray-700 leading-snug font-sans">
+            <h4 className="font-semibold text-sm text-black font-sans">Sagar Ratna India</h4>
+            <p className="text-[11px] text-gray-600 leading-snug font-sans">
               C-52, Janpath Rd, Atul Grove Road, Janpath, Connaught Place, New Delhi, Delhi 110001
             </p>
-            <p className="text-xs font-medium text-gray-800 pt-1">
+            <p className="text-[11px] font-normal text-gray-700 pt-0.5">
               {resolvedTime}
             </p>
-            <p className="font-bold text-sm text-black pt-1 font-sans">
+            <p className="font-medium text-xs text-gray-800 pt-0.5 font-sans">
               {resolvedTableId ? `Dine-In • ${resolvedTableName}` : orderType}
             </p>
           </div>
 
           {/* Dashed Separator */}
-          <div className="border-t border-dashed border-gray-400 my-3.5"></div>
+          <div className="border-t border-dashed border-gray-300 my-3"></div>
 
           {/* Customer / Note Reference */}
-          <div className="font-semibold text-xs text-gray-800">
+          <div className="font-medium text-xs text-gray-800">
             {resolvedTableName || customerName}
           </div>
 
           {/* Dashed Separator */}
-          <div className="border-t border-dashed border-gray-400 my-3.5"></div>
+          <div className="border-t border-dashed border-gray-300 my-3"></div>
 
           {/* Items Table */}
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="py-1 font-bold text-black w-[48%]">Item</th>
-                <th className="py-1 font-bold text-black text-center w-[16%]">Qty</th>
-                <th className="py-1 font-bold text-black text-right w-[18%]">Rate</th>
-                <th className="py-1 font-bold text-black text-right w-[18%]">Total</th>
+              <tr className="border-b border-gray-200 text-gray-700 font-medium">
+                <th className="py-1 w-[48%]">Item</th>
+                <th className="py-1 text-center w-[16%]">Qty</th>
+                <th className="py-1 text-right w-[18%]">Rate</th>
+                <th className="py-1 text-right w-[18%]">Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 font-normal">
               {resolvedItems.map((item, idx) => (
-                <tr key={idx} className="leading-relaxed">
-                  <td className="py-1.5 font-medium text-gray-900 pr-1 break-words">
+                <tr key={idx} className="leading-relaxed text-gray-800">
+                  <td className="py-1.5 pr-1 break-words">
                     {idx + 1}.{item.menuItem.name}
                   </td>
-                  <td className="py-1.5 text-center text-gray-800">{item.quantity}</td>
-                  <td className="py-1.5 text-right text-gray-800">{item.menuItem.price}</td>
-                  <td className="py-1.5 text-right font-medium text-black">
+                  <td className="py-1.5 text-center">{item.quantity}</td>
+                  <td className="py-1.5 text-right">{item.menuItem.price}</td>
+                  <td className="py-1.5 text-right font-medium">
                     {item.menuItem.price * item.quantity}
                   </td>
                 </tr>
@@ -230,39 +230,39 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({
           </table>
 
           {/* Dashed Separator */}
-          <div className="border-t border-dashed border-gray-400 my-3.5"></div>
+          <div className="border-t border-dashed border-gray-300 my-3"></div>
 
           {/* Totals Summary Row */}
-          <div className="flex justify-between items-center text-xs font-bold text-black">
+          <div className="flex justify-between items-center text-xs font-medium text-gray-800">
             <span>Total Qty : {totalQty}</span>
             <span>Total Amount : Rs {resolvedAmount.toFixed(2)}</span>
           </div>
 
           {/* Grand Total Row */}
-          <div className="text-center font-bold text-base text-black mt-4 mb-1">
+          <div className="text-center font-semibold text-sm text-gray-900 mt-3 mb-1">
             Grand Total : Rs {resolvedAmount.toFixed(2)}
           </div>
 
           {/* Dashed Separator */}
-          <div className="border-t border-dashed border-gray-400 my-3.5"></div>
+          <div className="border-t border-dashed border-gray-300 my-3"></div>
         </div>
 
-        {/* Bottom Action Bar matching ↓ icon and print */}
-        <div className="p-3 border-t border-outline-variant/20 bg-surface-container-lowest flex items-center justify-between">
+        {/* Bottom Action Bar */}
+        <div className="p-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
           <button
             onClick={handleDownloadPDF}
             title="Download / Print"
-            className="p-2.5 rounded-xl border border-outline-variant hover:bg-surface-container text-on-surface transition-colors flex items-center justify-center font-bold"
+            className="p-2 rounded-lg border border-gray-300 hover:bg-white text-gray-700 transition-colors flex items-center justify-center font-medium text-xs shadow-2xs"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-4 h-4" />
           </button>
           
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
+              className="flex items-center gap-1.5 bg-slate-800 text-white px-3.5 py-2 rounded-lg font-medium text-xs hover:bg-slate-700 transition-colors shadow-2xs"
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-3.5 h-3.5" />
               <span>Print Bill</span>
             </button>
           </div>
