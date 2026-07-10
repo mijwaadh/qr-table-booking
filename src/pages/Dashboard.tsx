@@ -291,7 +291,7 @@ export const Dashboard: React.FC = () => {
           {/* Main Grid: Tables and Sidebar */}
           <div className="grid grid-cols-12 gap-lg">
             {/* Recent Orders Table */}
-            <div className="col-span-12 lg:col-span-9 bg-white rounded-xl card-shadow border border-outline-variant/30 overflow-hidden">
+            <div className="col-span-12 bg-white rounded-xl card-shadow border border-outline-variant/30 overflow-hidden">
               <div className="px-lg py-md border-b border-outline-variant/20 flex justify-between items-center">
                 <h3 className="font-headline-sm text-headline-sm text-on-surface">Recent Orders</h3>
                 <button onClick={() => navigate('/orders')} className="text-primary font-label-md hover:underline font-semibold">View All Orders</button>
@@ -368,63 +368,6 @@ export const Dashboard: React.FC = () => {
                     )}
                   </tbody>
                 </table>
-              </div>
-            </div>
-
-            {/* Quick Actions Sidebar Section */}
-            <div className="col-span-12 lg:col-span-3 space-y-lg">
-              <div className="bg-white p-lg rounded-xl card-shadow border border-outline-variant/30">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface mb-lg">Quick Actions</h3>
-                <div className="space-y-md">
-                  <button 
-                    onClick={handleGenerateQR}
-                    className="w-full flex items-center gap-md p-md bg-surface border border-outline-variant/40 rounded-xl hover:border-primary/40 hover:bg-primary-container/5 transition-all group"
-                  >
-                    <div className="p-sm bg-primary-container/10 text-primary rounded-lg group-hover:bg-primary group-hover:text-on-primary transition-colors">
-                      <QrCode className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-label-md text-on-surface font-semibold">Generate QR Codes</p>
-                      <p className="text-[10px] text-on-surface-variant">For new tables or menus</p>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={() => navigate('/menu')}
-                    className="w-full flex items-center gap-md p-md bg-surface border border-outline-variant/40 rounded-xl hover:border-primary/40 hover:bg-primary-container/5 transition-all group"
-                  >
-                    <div className="p-sm bg-secondary-container/10 text-secondary rounded-lg group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
-                      <PlusCircle className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-label-md text-on-surface font-semibold">Add Menu Item</p>
-                      <p className="text-[10px] text-on-surface-variant">Update seasonal offerings</p>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={handleBroadcastAlert}
-                    className="w-full flex items-center gap-md p-md bg-surface border border-outline-variant/40 rounded-xl hover:border-primary/40 hover:bg-primary-container/5 transition-all group"
-                  >
-                    <div className="p-sm bg-tertiary-container/10 text-tertiary rounded-lg group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors">
-                      <BellRing className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-label-md text-on-surface font-semibold">Broadcast Alert</p>
-                      <p className="text-[10px] text-on-surface-variant">Notify all kitchen staff</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* System Health / Ad Component */}
-              <div className="relative overflow-hidden bg-inverse-surface text-inverse-on-surface p-lg rounded-xl card-shadow">
-                <div className="relative z-10">
-                  <h4 className="font-label-md font-bold mb-xs text-white">Premium Support</h4>
-                  <p className="text-xs text-white/80 mb-md">Get 24/7 dedicated assistance for your peak service hours.</p>
-                  <button className="w-full py-2 bg-primary-fixed text-on-primary-fixed rounded-lg font-label-sm hover:opacity-90 transition-opacity font-semibold">Contact Expert</button>
-                </div>
-                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-primary rounded-full opacity-20 blur-2xl"></div>
               </div>
             </div>
           </div>

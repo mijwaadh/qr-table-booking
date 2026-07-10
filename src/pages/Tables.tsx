@@ -441,8 +441,8 @@ export const Tables: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 3 Action Buttons right below total bar - clean classic light buttons */}
-                  <div className="p-3 bg-gray-50 grid grid-cols-3 gap-2 border-t border-gray-200">
+                  {/* 2 Action Buttons right below total bar - clean classic light buttons */}
+                  <div className="p-3 bg-gray-50 grid grid-cols-2 gap-2 border-t border-gray-200">
                     <button 
                       onClick={() => {
                         playBilledSound();
@@ -459,16 +459,6 @@ export const Tables: React.FC = () => {
                     >
                       <FileText className="w-3.5 h-3.5 text-gray-500" />
                       <span>Print & Save</span>
-                    </button>
-                    <button 
-                      onClick={() => {
-                        playItemTapSound();
-                        setActiveTableModal(activeTableForSide);
-                      }}
-                      className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 py-2 rounded text-xs font-normal shadow-2xs flex items-center justify-center gap-1 transition-all"
-                    >
-                      <IndianRupee className="w-3.5 h-3.5 text-gray-500" />
-                      <span>Payment</span>
                     </button>
                     <button 
                       onClick={() => {
