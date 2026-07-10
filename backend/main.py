@@ -1,3 +1,20 @@
+import os
+import sys
+import subprocess
+
+# Auto-generate Prisma Client Python if it hasn't been generated yet (useful for Render deployments)
+try:
+    import prisma
+    from prisma import Prisma
+except (ImportError, RuntimeError):
+    print("[Prisma] Client not found. Generating Prisma client...")
+    schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prisma", "schema.prisma")
+    try:
+        subprocess.run([sys.executable, "-m", "prisma", "generate", f"--schema={schema_path}"], check=True)
+        print("[Prisma] Client successfully generated on startup.")
+    except Exception as e:
+        print(f"[Prisma] Failed to auto-generate client on startup: {e}")
+
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
