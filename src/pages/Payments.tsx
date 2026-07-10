@@ -24,8 +24,8 @@ import { playBilledSound, playCashPaymentSound, playItemTapSound, playNewOrderSo
 
 export const Payments: React.FC = () => {
   const { tables, orders, menuItems, settleBill, addOrder } = useRestaurant();
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTableId, setSelectedTableId] = useState<string>('T18'); // Default select Table 18 as in Stitch design
   const [selectedMethod, setSelectedMethod] = useState<'UPI' | 'Card' | 'Cash'>('UPI');
   const [discountCode, setDiscountCode] = useState('');
   const [discountApplied, setDiscountApplied] = useState(0); // in percent
@@ -61,17 +61,19 @@ export const Payments: React.FC = () => {
     .filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase()));
   
   // Find selected table details
-  const currentTable = tables.find(t => t.id === selectedTableId) || tables[0];
+  const currentTable = selectedTableId ? tables.find(t => t.id === selectedTableId) : null;
   
   // Find orders for selected table
-  const tableOrders = orders.filter(o => o.tableId === selectedTableId && o.status !== 'COMPLETED' && o.status !== 'CANCELLED');
+  const tableOrders = selectedTableId ? orders.filter(o => o.tableId === selectedTableId && o.status !== 'COMPLETED' && o.status !== 'CANCELLED') : [];
   
   // Calculate subtotal from active orders
-  const subtotal = tableOrders.reduce((sum, o) => sum + o.amount, 0) || (currentTable?.amount || 0);
+  const subtotal = tableOrders.length > 0 
+    ? tableOrders.reduce((sum, o) => sum + o.amount, 0) 
+    : (currentTable?.amount || 0);
   const gst = subtotal * 0.05;
   const serviceCharge = subtotal > 0 ? 5.00 : 0;
   const discountAmount = subtotal * (discountApplied / 100);
-  const total = subtotal + gst + serviceCharge - discountAmount;
+  const total = subtotal > 0 ? Math.max(0, subtotal + gst + serviceCharge - discountAmount) : 0;
 
   // Compute Cash Return Amount for regular billing
   const returnAmount = typeof customerPaidAmount === 'number' && customerPaidAmount > total ? (customerPaidAmount - total) : 0;
@@ -92,29 +94,29 @@ export const Payments: React.FC = () => {
   };
 
   const handleGenerateBill = () => {
-    if (subtotal === 0 && tableOrders.length === 0) {
-      alert('No pending items or amount for this table.');
+    if (!currentTable || (subtotal === 0 && tableOrders.length === 0)) {
+      alert('No active order items for this table.');
       return;
     }
-    // Open Universal Bill Preview right right matching Sagar Ratna layout
+    // Open Universal Bill Preview
     const itemsToPreview = tableOrders.length > 0 
       ? tableOrders.flatMap(o => o.items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity })))
       : [
-          { menuItem: { id: 'mock1', name: 'Grilled Salmon Steak', price: 28.5, description: '', category: 'Main Course', available: true, type: 'NON-VEG' }, quantity: 2 },
-          { menuItem: { id: 'mock2', name: 'Truffle Risotto', price: 24.0, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }
+          { menuItem: { id: 'd1', name: `Dine-In Charges (${currentTable.name})`, price: subtotal, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }
         ];
 
     setPreviewOrderData({
-      tableId: currentTable?.id || selectedTableId,
-      tableName: currentTable?.name || `Table ${selectedTableId}`,
+      tableId: currentTable.id,
+      tableName: currentTable.name,
       items: itemsToPreview as any,
-      amount: total > 0 ? total : 129.42,
-      orderType: `Dine-In • ${currentTable?.name || selectedTableId}`
+      amount: total,
+      orderType: `Dine-In • ${currentTable.name}`
     });
     setShowBillPreview(true);
   };
 
   const handlePrintAndSettle = () => {
+    if (!currentTable) return;
     playBilledSound();
     handleGenerateBill();
     setTimeout(() => {
@@ -131,12 +133,7 @@ export const Payments: React.FC = () => {
     setShowSuccessModal(false);
     setDiscountApplied(0);
     setDiscountCode('');
-    
-    // Auto select another pending table if available
-    const nextPending = tables.find(t => t.id !== selectedTableId && (t.status === 'PAYMENT_PENDING' || t.status === 'OCCUPIED'));
-    if (nextPending) {
-      setSelectedTableId(nextPending.id);
-    }
+    setSelectedTableId(null);
   };
 
   // Quick Bill Take-Away actions
@@ -286,194 +283,189 @@ export const Payments: React.FC = () => {
 
           {/* Right Section: Bill Preview (5 Columns) */}
           <aside className="col-span-12 lg:col-span-5 h-full overflow-y-auto no-scrollbar">
-            <div className="bg-white rounded-2xl border border-outline-variant bill-preview-shadow h-full flex flex-col overflow-hidden">
-              
-              {/* Bill Header */}
-              <div className="p-lg border-b border-outline-variant bg-surface-bright flex justify-between items-start">
-                <div>
-                  <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold text-base">Bill Preview</h3>
-                  <p className="text-label-sm text-on-surface-variant text-xs">
-                    {currentTable?.name || 'No Table Selected'} • Order #{tableOrders[0]?.id || 'SF-MOCK'}
-                  </p>
+            {(!currentTable || (tableOrders.length === 0 && (!currentTable.amount || currentTable.amount === 0))) ? (
+              <div className="bg-white rounded-2xl border border-outline-variant bill-preview-shadow h-full flex flex-col items-center justify-center p-xl text-center">
+                <div className="w-20 h-20 bg-surface-container-low rounded-full flex items-center justify-center mb-md text-outline">
+                  <Receipt className="w-10 h-10 text-on-surface-variant/40" />
                 </div>
-                <button onClick={handleGenerateBill} title="Open full print layout" className="text-on-surface-variant hover:text-primary transition-colors">
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold text-lg mb-2">No Active Bill Selected</h3>
+                <p className="font-body-sm text-body-sm text-on-surface-variant max-w-xs text-xs leading-relaxed">
+                  Select an ordered or payment-pending table from the left to view its bill breakdown and process checkout. Or use <strong className="text-amber-600 font-semibold">Quick Bill / Take-Away</strong>.
+                </p>
               </div>
-
-              {/* Bill Content */}
-              <div className="flex-1 p-lg space-y-md overflow-y-auto custom-scrollbar">
+            ) : (
+              <div className="bg-white rounded-2xl border border-outline-variant bill-preview-shadow h-full flex flex-col overflow-hidden animate-fadeIn">
                 
-                {/* Order Items List */}
-                <div className="space-y-md border-b border-surface-variant pb-md">
-                  {tableOrders.length > 0 ? (
-                    tableOrders.map(order => 
-                      order.items.map((item, idx) => (
-                        <div key={`${order.id}-${idx}`} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-md">
-                            <div className="w-8 h-8 bg-surface-container flex items-center justify-center rounded font-bold text-xs">{item.quantity}x</div>
-                            <span className="font-body-md text-on-surface">{item.menuItem.name}</span>
+                {/* Bill Header */}
+                <div className="p-lg border-b border-outline-variant bg-surface-bright flex justify-between items-start">
+                  <div>
+                    <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold text-base">Bill Preview</h3>
+                    <p className="text-label-sm text-on-surface-variant text-xs">
+                      {currentTable.name} • Order #{tableOrders[0]?.id || `TBL-${currentTable.id.replace(/^T0?/, '')}`}
+                    </p>
+                  </div>
+                  <button onClick={handleGenerateBill} title="Open full print layout" className="text-on-surface-variant hover:text-primary transition-colors">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Bill Content */}
+                <div className="flex-1 p-lg space-y-md overflow-y-auto custom-scrollbar">
+                  
+                  {/* Order Items List */}
+                  <div className="space-y-md border-b border-surface-variant pb-md">
+                    {tableOrders.length > 0 ? (
+                      tableOrders.map(order => 
+                        order.items.map((item, idx) => (
+                          <div key={`${order.id}-${idx}`} className="flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-md">
+                              <div className="w-8 h-8 bg-surface-container flex items-center justify-center rounded font-bold text-xs">{item.quantity}x</div>
+                              <span className="font-body-md text-on-surface">{item.menuItem.name}</span>
+                            </div>
+                            <span className="font-body-md font-semibold text-on-surface">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
                           </div>
-                          <span className="font-body-md font-semibold text-on-surface">₹{(item.menuItem.price * item.quantity).toFixed(2)}</span>
-                        </div>
-                      ))
-                    )
-                  ) : (
-                    // Default fallback mock items matching Table 18 from Stitch
-                    <>
-                      <div className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-md">
-                          <div className="w-8 h-8 bg-surface-container flex items-center justify-center rounded font-bold text-xs">2x</div>
-                          <span className="font-body-md text-on-surface">Grilled Salmon Steak</span>
-                        </div>
-                        <span className="font-body-md font-semibold text-on-surface">₹57.00</span>
-                      </div>
+                        ))
+                      )
+                    ) : (
                       <div className="flex justify-between items-center text-sm">
                         <div className="flex items-center gap-md">
                           <div className="w-8 h-8 bg-surface-container flex items-center justify-center rounded font-bold text-xs">1x</div>
-                          <span className="font-body-md text-on-surface">Truffle Mushroom Risotto</span>
+                          <span className="font-body-md text-on-surface">Dine-In Charges ({currentTable.name})</span>
                         </div>
-                        <span className="font-body-md font-semibold text-on-surface">₹24.00</span>
+                        <span className="font-body-md font-semibold text-on-surface">₹{(currentTable.amount || 0).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-md">
-                          <div className="w-8 h-8 bg-surface-container flex items-center justify-center rounded font-bold text-xs">3x</div>
-                          <span className="font-body-md text-on-surface">Virgin Mojito (L)</span>
-                        </div>
-                        <span className="font-body-md font-semibold text-on-surface">₹37.50</span>
-                      </div>
-                    </>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                {/* Calculations Section */}
-                <div className="mt-xl space-y-sm">
-                  <div className="flex justify-between text-body-md text-sm">
-                    <span className="text-on-surface-variant">Subtotal</span>
-                    <span className="font-semibold">₹{subtotal > 0 ? subtotal.toFixed(2) : '118.50'}</span>
-                  </div>
-                  <div className="flex justify-between text-body-md text-sm">
-                    <span className="text-on-surface-variant">GST (5%)</span>
-                    <span className="font-semibold">₹{gst > 0 ? gst.toFixed(2) : '5.92'}</span>
-                  </div>
-                  <div className="flex justify-between text-body-md text-sm">
-                    <span className="text-on-surface-variant">Service Charge</span>
-                    <span className="font-semibold">₹{serviceCharge > 0 ? serviceCharge.toFixed(2) : '5.00'}</span>
-                  </div>
-                  {discountApplied > 0 && (
-                    <div className="flex justify-between text-body-md text-sm text-primary">
-                      <span>Discount ({discountApplied}%)</span>
-                      <span className="font-semibold">-₹{discountAmount.toFixed(2)}</span>
+                  {/* Calculations Section */}
+                  <div className="mt-xl space-y-sm">
+                    <div className="flex justify-between text-body-md text-sm">
+                      <span className="text-on-surface-variant">Subtotal</span>
+                      <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
                     </div>
-                  )}
+                    <div className="flex justify-between text-body-md text-sm">
+                      <span className="text-on-surface-variant">GST (5%)</span>
+                      <span className="font-semibold">₹{gst.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-body-md text-sm">
+                      <span className="text-on-surface-variant">Service Charge</span>
+                      <span className="font-semibold">₹{serviceCharge.toFixed(2)}</span>
+                    </div>
+                    {discountApplied > 0 && (
+                      <div className="flex justify-between text-body-md text-sm text-primary">
+                        <span>Discount ({discountApplied}%)</span>
+                        <span className="font-semibold">-₹{discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
 
-                  <div className="pt-sm">
-                    <div className="relative">
-                      <Ticket className="w-4 h-4 absolute left-md top-1/2 -translate-y-1/2 text-outline" />
-                      <input 
-                        value={discountCode}
-                        onChange={(e) => setDiscountCode(e.target.value)}
-                        className="w-full pl-xl pr-20 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-body-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all text-xs"
-                        placeholder="Add discount code (SF20)..."
-                        type="text"
-                      />
+                    <div className="pt-sm">
+                      <div className="relative">
+                        <Ticket className="w-4 h-4 absolute left-md top-1/2 -translate-y-1/2 text-outline" />
+                        <input 
+                          value={discountCode}
+                          onChange={(e) => setDiscountCode(e.target.value)}
+                          className="w-full pl-xl pr-20 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-body-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all text-xs"
+                          placeholder="Add discount code (SF20)..."
+                          type="text"
+                        />
+                        <button 
+                          type="button"
+                          onClick={handleApplyDiscount}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-primary font-bold text-xs hover:underline"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                    <div className="pt-md mt-md border-t border-dashed border-outline-variant flex justify-between items-end">
+                      <span className="font-headline-sm text-headline-sm text-on-surface font-bold text-base">Grand Total</span>
+                      <span className="font-display text-headline-lg text-primary font-bold text-2xl">
+                        ₹{total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Payment Methods */}
+                  <div className="mt-xl">
+                    <p className="text-label-sm text-outline mb-md uppercase tracking-widest font-extrabold text-[10px]">Payment Method</p>
+                    <div className="grid grid-cols-3 gap-sm">
                       <button 
-                        type="button"
-                        onClick={handleApplyDiscount}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-primary font-bold text-xs hover:underline"
+                        onClick={() => setSelectedMethod('UPI')}
+                        className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
+                          selectedMethod === 'UPI' ? 'border-primary bg-primary-container/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-outline'
+                        }`}
                       >
-                        Apply
+                        <QrCode className="w-5 h-5 mb-xs" />
+                        <span className="font-label-md text-xs font-semibold">UPI</span>
+                      </button>
+                      <button 
+                        onClick={() => setSelectedMethod('Card')}
+                        className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
+                          selectedMethod === 'Card' ? 'border-primary bg-primary-container/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-outline'
+                        }`}
+                      >
+                        <CreditCard className="w-5 h-5 mb-xs" />
+                        <span className="font-label-md text-xs font-semibold">Card</span>
+                      </button>
+                      <button 
+                        onClick={() => { setSelectedMethod('Cash'); playCashPaymentSound(); }}
+                        className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
+                          selectedMethod === 'Cash' ? 'border-primary bg-primary-container/10 text-primary font-bold' : 'border-outline-variant text-on-surface-variant hover:border-outline'
+                        }`}
+                      >
+                        <IndianRupee className="w-5 h-5 mb-xs" />
+                        <span className="font-label-md text-xs font-semibold">Cash</span>
                       </button>
                     </div>
-                  </div>
-                  <div className="pt-md mt-md border-t border-dashed border-outline-variant flex justify-between items-end">
-                    <span className="font-headline-sm text-headline-sm text-on-surface font-bold text-base">Grand Total</span>
-                    <span className="font-display text-headline-lg text-primary font-bold text-2xl">
-                      ₹{total > 0 ? total.toFixed(2) : '129.42'}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Payment Methods */}
-                <div className="mt-xl">
-                  <p className="text-label-sm text-outline mb-md uppercase tracking-widest font-extrabold text-[10px]">Payment Method</p>
-                  <div className="grid grid-cols-3 gap-sm">
-                    <button 
-                      onClick={() => setSelectedMethod('UPI')}
-                      className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
-                        selectedMethod === 'UPI' ? 'border-primary bg-primary-container/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-outline'
-                      }`}
-                    >
-                      <QrCode className="w-5 h-5 mb-xs" />
-                      <span className="font-label-md text-xs font-semibold">UPI</span>
-                    </button>
-                    <button 
-                      onClick={() => setSelectedMethod('Card')}
-                      className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
-                        selectedMethod === 'Card' ? 'border-primary bg-primary-container/10 text-primary' : 'border-outline-variant text-on-surface-variant hover:border-outline'
-                      }`}
-                    >
-                      <CreditCard className="w-5 h-5 mb-xs" />
-                      <span className="font-label-md text-xs font-semibold">Card</span>
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedMethod('Cash'); playCashPaymentSound(); }}
-                      className={`flex flex-col items-center justify-center p-md rounded-xl border-2 transition-all ${
-                        selectedMethod === 'Cash' ? 'border-primary bg-primary-container/10 text-primary font-bold' : 'border-outline-variant text-on-surface-variant hover:border-outline'
-                      }`}
-                    >
-                      <IndianRupee className="w-5 h-5 mb-xs" />
-                      <span className="font-label-md text-xs font-semibold">Cash</span>
-                    </button>
-                  </div>
-
-                  {/* Cash Payment Calculator inputs and return balance */}
-                  {selectedMethod === 'Cash' && (
-                    <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3 animate-fadeIn">
-                      <div className="flex items-center justify-between text-xs font-bold text-on-surface">
-                        <span>Customer Paid Amount (Cash Received):</span>
-                        <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-amber-500/40 shadow-inner">
-                          <span className="text-gray-500">₹</span>
-                          <input 
-                            type="number" 
-                            value={customerPaidAmount} 
-                            onChange={(e) => setCustomerPaidAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
-                            placeholder="1000"
-                            className="w-20 font-bold text-sm text-right bg-transparent outline-none"
-                          />
+                    {/* Cash Payment Calculator inputs and return balance */}
+                    {selectedMethod === 'Cash' && (
+                      <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-3 animate-fadeIn">
+                        <div className="flex items-center justify-between text-xs font-bold text-on-surface">
+                          <span>Customer Paid Amount (Cash Received):</span>
+                          <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-lg border border-amber-500/40 shadow-inner">
+                            <span className="text-gray-500">₹</span>
+                            <input 
+                              type="number" 
+                              value={customerPaidAmount} 
+                              onChange={(e) => setCustomerPaidAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                              placeholder="1000"
+                              className="w-20 font-bold text-sm text-right bg-transparent outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-sm font-extrabold text-on-surface pt-2 border-t border-amber-500/20">
+                          <span>Return Amount (Balance):</span>
+                          <span className="text-base px-2.5 py-1 bg-amber-500 text-white rounded-lg shadow">
+                            ₹{returnAmount.toFixed(2)}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-sm font-extrabold text-on-surface pt-2 border-t border-amber-500/20">
-                        <span>Return Amount (Balance):</span>
-                        <span className="text-base px-2.5 py-1 bg-amber-500 text-white rounded-lg shadow">
-                          ₹{returnAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Action Buttons */}
+                <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-2 gap-md">
+                  <button 
+                    onClick={handlePrintAndSettle}
+                    className="bg-primary text-on-primary py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 font-bold"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    <span>Print & Settle Bill</span>
+                  </button>
+                  <button 
+                    onClick={handleGenerateBill}
+                    className="bg-surface-container-high border border-outline-variant text-on-surface py-3 rounded-xl font-headline-sm text-sm hover:bg-surface-container active:scale-[0.98] transition-all flex items-center justify-center gap-2 font-semibold"
+                  >
+                    <Printer className="w-4 h-4 text-outline" />
+                    <span>Print Receipt</span>
+                  </button>
                 </div>
 
               </div>
-
-              {/* Action Buttons */}
-              <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-2 gap-md">
-                <button 
-                  onClick={handlePrintAndSettle}
-                  className="bg-primary text-on-primary py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 font-bold"
-                >
-                  <Receipt className="w-4 h-4" />
-                  <span>Print & Settle Bill</span>
-                </button>
-                <button 
-                  onClick={handleGenerateBill}
-                  className="bg-surface-container-high border border-outline-variant text-on-surface py-3 rounded-xl font-headline-sm text-sm hover:bg-surface-container active:scale-[0.98] transition-all flex items-center justify-center gap-2 font-semibold"
-                >
-                  <Printer className="w-4 h-4 text-outline" />
-                  <span>Print Receipt</span>
-                </button>
-              </div>
-
-            </div>
+            )}
           </aside>
 
         </div>

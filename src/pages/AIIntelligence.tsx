@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRestaurant } from '../contexts/RestaurantContext';
+import { processCopilotQuery } from '../utils/aiCopilotEngine';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -54,17 +56,17 @@ interface MarketCommodity {
   name: string;
   unit: string;
   todayPrice: number;
-  yesterdayPrice: number;
-  difference: number;
-  weekAgoPrice: number | null;
-  monthAgoPrice: number | null;
-  diffWeek: number | null;
-  diffMonth: number | null;
-  pctYesterday: number | null;
-  pctWeek: number | null;
-  pctMonth: number | null;
+  yesterdayPrice?: number;
+  difference?: number;
+  weekAgoPrice?: number;
+  monthAgoPrice?: number;
+  diffWeek?: number;
+  diffMonth?: number;
+  pctYesterday?: number;
+  pctWeek?: number;
+  pctMonth?: number;
   trend: 'increasing' | 'decreasing' | 'stable';
-  prediction: string;
+  prediction?: string;
 }
 
 interface Recommendation {
@@ -78,7 +80,7 @@ interface Recommendation {
 
 interface Supplier {
   name: string;
-  reliability: number; // percentage
+  reliability: number;
   deliverySpeed: string;
   priceStability: 'high' | 'medium' | 'low';
   status: 'excellent' | 'good' | 'critical';
@@ -89,7 +91,7 @@ interface MenuItemMargin {
   name: string;
   recipeCost: number;
   sellingPrice: number;
-  margin: number; // percentage
+  margin: number;
   volume: 'high' | 'medium' | 'low';
   status: 'healthy' | 'warning' | 'critical';
 }
@@ -111,11 +113,15 @@ interface ChatMessage {
   time: string;
   table?: Array<Record<string, any>>;
   recommendations?: string[];
+  executedAction?: string;
+  actionButtons?: { label: string; route: string }[];
 }
 
 export const AIIntelligence: React.FC = () => {
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || 'overview';
+  const navigate = useNavigate();
+  const { tables, orders, menuItems, setTableStatus, updateOrderStatus, showGlobalNotification } = useRestaurant();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<string>(tabParam);
@@ -151,8 +157,12 @@ export const AIIntelligence: React.FC = () => {
     {
       id: 'msg_1',
       sender: 'assistant',
-      text: 'Hello! I am your ServeFlow AI Copilot. I analyze menu costs, supplier rates, inventory runout risks, and demand forecasts. How can I help you today?',
-      time: '10:00 AM'
+      text: '⚡ **ServeFlow AI Copilot (System Controlled)**\nI have complete visibility and command access to your live POS, floor tables, kitchen queue, and analytics models.\n\n**Try giving me a system command or asking anything:**\n- *"which table is free right now?"*\n- *"which food is most sold?"*\n- *"open kds"*, *"open payments"*, or *"open ai intelligence"*\n- *"clear kds"* or *"make table T01 free"*',
+      actionButtons: [
+        { label: 'Check Free Tables (`/tables`)', route: '/tables' },
+        { label: 'View Kitchen KDS (`/kds`)', route: '/kds' }
+      ],
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -458,31 +468,32 @@ export const AIIntelligence: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/copilot/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: query })
-      });
-      if (response.ok) {
-        const replyData = await response.json();
-        const botMessage: ChatMessage = {
-          id: `bot_${Date.now()}`,
-          sender: 'assistant',
-          text: replyData.text,
-          table: replyData.table || undefined,
-          recommendations: replyData.recommendations || undefined,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setChatHistory(prev => [...prev, botMessage]);
-      } else {
-        throw new Error("Chat response failed");
-      }
+      const result = await processCopilotQuery(
+        query,
+        tables,
+        orders,
+        menuItems,
+        (path) => navigate(path),
+        { setTableStatus, updateOrderStatus, showGlobalNotification }
+      );
+
+      const botMessage: ChatMessage = {
+        id: `bot_${Date.now()}`,
+        sender: 'assistant',
+        text: result.text,
+        table: result.table,
+        recommendations: result.recommendations,
+        executedAction: result.executedAction,
+        actionButtons: result.actionButtons,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setChatHistory(prev => [...prev, botMessage]);
     } catch (err) {
       console.error(err);
       const errorMessage: ChatMessage = {
         id: `bot_err_${Date.now()}`,
         sender: 'assistant',
-        text: "I am having trouble accessing the server database parameters right now. Please try again in a few moments.",
+        text: "I experienced an issue processing your system command. Please verify your query syntax or try again.",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setChatHistory(prev => [...prev, errorMessage]);
@@ -604,7 +615,7 @@ export const AIIntelligence: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-background">
       {/* Top Navigation */}
-      <TopNavBar title="AI Intelligence Center" onSearchChange={setSearchTerm} />
+      <TopNavBar title="AI Intelligence" onSearchChange={setSearchTerm} />
 
       {/* Page Header */}
       <div className="px-xl pt-xl flex flex-col md:flex-row md:items-end justify-between gap-md">
@@ -873,7 +884,7 @@ export const AIIntelligence: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-outline-variant/10 text-xs">
                       {filteredCommodities.map((c) => {
-                        const renderDiff = (diff: number | null, pct: number | null, prevPrice: number | null) => {
+                        const renderDiff = (diff: number | null | undefined, pct: number | null | undefined, prevPrice: number | null | undefined) => {
                           if (prevPrice === null || prevPrice === undefined || prevPrice === 0) {
                             return <span className="text-outline font-normal">N/A</span>;
                           }
@@ -1010,7 +1021,7 @@ export const AIIntelligence: React.FC = () => {
                   <div key={idx} className="flex justify-between items-center p-md rounded-xl border border-outline-variant/20 bg-surface-bright hover:bg-surface-container-low/40 transition-colors">
                     <div className="flex items-center gap-md">
                       <div className="w-10 h-10 rounded-full bg-secondary-container/10 flex items-center justify-center text-secondary font-bold text-xs">
-                        {supplier.name.split(' ').map(w => w[0]).join('')}
+                        {supplier.name.split(' ').map((w: string) => w[0]).join('')}
                       </div>
                       <div>
                         <p className="font-semibold text-xs text-on-surface">{supplier.name}</p>
@@ -1337,8 +1348,13 @@ export const AIIntelligence: React.FC = () => {
                 {chatHistory.map((msg) => (
                   <div 
                     key={msg.id} 
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
                   >
+                    {msg.executedAction && (
+                      <div className="mb-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 text-[10px] font-bold">
+                        <span>⚡ {msg.executedAction}</span>
+                      </div>
+                    )}
                     <div 
                       className={`max-w-[75%] rounded-2xl p-md text-xs relative ${
                         msg.sender === 'user' 
@@ -1385,6 +1401,21 @@ export const AIIntelligence: React.FC = () => {
                               </li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+
+                      {msg.actionButtons && msg.actionButtons.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-outline-variant/30 flex flex-wrap gap-1.5">
+                          {msg.actionButtons.map((btn, bIdx) => (
+                            <button
+                              key={bIdx}
+                              onClick={() => navigate(btn.route)}
+                              className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-on-primary font-bold text-[10px] flex items-center gap-1 transition-all"
+                            >
+                              <span>{btn.label}</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          ))}
                         </div>
                       )}
 

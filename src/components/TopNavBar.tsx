@@ -10,7 +10,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({ title, onSearchChange }) =
   return (
     <header className="flex justify-between items-center h-16 px-lg w-full sticky top-0 bg-surface z-40 border-b border-outline-variant transition-all duration-200 shrink-0">
       <div className="flex items-center gap-xl flex-1 max-w-xl">
-        {title && <h2 className="hidden md:block font-headline-md text-headline-md font-bold text-primary mr-lg">{title}</h2>}
+        {title && <h2 className="hidden md:block font-headline-md text-headline-md font-bold text-primary mr-lg whitespace-nowrap shrink-0">{title}</h2>}
         <div className="relative w-full">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
           <input
