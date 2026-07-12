@@ -87,6 +87,21 @@ export const Payments: React.FC = () => {
   const parcelTotal = parcelSubtotal + parcelGst;
   const parcelReturnAmount = typeof parcelPaidAmount === 'number' && parcelPaidAmount > parcelTotal ? (parcelPaidAmount - parcelTotal) : 0;
 
+  // Retrieve customer phone stored during OTP login on mobile ordering
+  const getStoredCustomerInfo = (tableId: string) => {
+    try {
+      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          customerName: parsed.name || '',
+          customerPhone: parsed.phone || ''
+        };
+      }
+    } catch { /* ignore */ }
+    return { customerName: '', customerPhone: '' };
+  };
+
   const handleApplyDiscount = () => {
     if (discountCode.toUpperCase() === 'SF20') {
       setDiscountApplied(20);
@@ -132,6 +147,7 @@ export const Payments: React.FC = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
+      const storedCustomer = getStoredCustomerInfo(currentTable.id);
       setPaidOrderData({
         invoiceNumber: invoiceNum,
         tableId: currentTable.id,
@@ -144,7 +160,9 @@ export const Payments: React.FC = () => {
         total: total,
         paymentMethod: selectedMethod,
         paymentStatus: 'Paid',
-        time: timeStr
+        time: timeStr,
+        customerName: storedCustomer.customerName || 'Dining Guest',
+        customerPhone: storedCustomer.customerPhone
       });
       setShowSuccessModal(true);
     }, 500);
@@ -162,6 +180,7 @@ export const Payments: React.FC = () => {
         hour: '2-digit',
         minute: '2-digit'
       });
+      const storedCustomer = getStoredCustomerInfo(currentTable.id);
       setPaidOrderData({
         invoiceNumber: invoiceNum,
         tableId: currentTable.id,
@@ -174,7 +193,9 @@ export const Payments: React.FC = () => {
         total: total,
         paymentMethod: selectedMethod,
         paymentStatus: 'Paid',
-        time: timeStr
+        time: timeStr,
+        customerName: storedCustomer.customerName || 'Dining Guest',
+        customerPhone: storedCustomer.customerPhone
       });
       setShowSuccessModal(true);
       return;

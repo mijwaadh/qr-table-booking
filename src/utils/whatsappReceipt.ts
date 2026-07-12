@@ -32,7 +32,7 @@ export interface ReceiptOrderInfo {
  */
 export const generateReceiptMessage = (order: ReceiptOrderInfo | any): string => {
   const invoice = order?.invoiceNumber || (order?.id ? `INV-${order.id}` : `INV-${Math.floor(1000 + Math.random() * 9000)}`);
-  const rawTable = order?.tableId || order?.tableName || 'T04';
+  const rawTable = order?.tableId || order?.tableName || 'T01';
   const table = rawTable.replace(/^Table\s*/i, 'T');
 
   const itemsArray = order?.items || [];
@@ -111,7 +111,7 @@ export const openWhatsApp = (phone: string, message: string): void => {
  */
 export const downloadReceiptPDF = (order: ReceiptOrderInfo | any): void => {
   const invoice = order?.invoiceNumber || (order?.id ? `INV-${order.id}` : `INV-${Math.floor(1000 + Math.random() * 9000)}`);
-  const rawTable = order?.tableId || order?.tableName || 'T04';
+  const rawTable = order?.tableId || order?.tableName || 'T01';
   const table = rawTable.startsWith('Table') ? rawTable : `Table ${rawTable}`;
   const dateStr = order?.time || order?.date || new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
