@@ -20,7 +20,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
-  const [selectedTableId, setSelectedTableId] = useState('T04');
+  const [selectedTableId, setSelectedTableId] = useState('T01');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Calculate metrics dynamically from live orders

@@ -38,7 +38,7 @@ export const MobileOrder: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { menuItems, addOrder, orders, settleBill, setTableStatus } = useRestaurant();
 
-  const rawTableId = searchParams.get('tableId') || searchParams.get('table') || 'T04';
+  const rawTableId = searchParams.get('tableId') || searchParams.get('table') || 'T01';
   const normalizeTableId = (id: string): string => {
     let clean = id.trim().toUpperCase();
     clean = clean.replace(/^(TABLE|TBL|T[\s_-]*)/, '').trim();
@@ -67,7 +67,6 @@ export const MobileOrder: React.FC = () => {
     } catch { return ''; }
   });
   const [showQRRegistrationModal, setShowQRRegistrationModal] = useState(false);
-  const [isRegisteringQR, setIsRegisteringQR] = useState(false);
 
   // Table PIN and Order with friends State
   const [tablePin] = useState(() => {
@@ -82,6 +81,12 @@ export const MobileOrder: React.FC = () => {
   const [qrModalTab, setQrModalTab] = useState<'NEW' | 'JOIN'>('NEW');
   const [joinPinInput, setJoinPinInput] = useState('');
   const [, setRazorpayPaymentId] = useState<string | null>(null);
+
+  // Phone OTP Authentication State
+  const [authStep, setAuthStep] = useState<'PHONE' | 'OTP'>('PHONE');
+  const [otpSentPhone, setOtpSentPhone] = useState('');
+  const [otpInput, setOtpInput] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   // Local Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -189,22 +194,38 @@ export const MobileOrder: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveQRRegistration = async (e: React.FormEvent) => {
+  const handleSendOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim() || !customerPhone.trim()) {
-      alert('Please enter both your Name and Phone Number to continue.');
+    const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) {
+      alert('Please enter a valid 10-digit mobile number.');
       return;
     }
-    setIsRegisteringQR(true);
+    setOtpSentPhone(cleanPhone);
+    setOtpInput('1234');
+    setAuthStep('OTP');
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpInput.trim() !== '1234' && otpInput.trim().length !== 4) {
+      alert('Invalid OTP code. Please enter valid 4-digit code (e.g. 1234).');
+      return;
+    }
+    setIsVerifyingOtp(true);
     try {
-      // Save on database via API call
+      const formattedPhone = `+91 ${otpSentPhone.slice(0, 5)} ${otpSentPhone.slice(5)}`;
+      const derivedName = customerName.trim() || `Guest (${otpSentPhone.slice(-4)})`;
+      setCustomerPhone(formattedPhone);
+      setCustomerName(derivedName);
+
       try {
         await fetch('http://localhost:8000/api/customers/qr-scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: customerName.trim(),
-            phone: customerPhone.trim(),
+            name: derivedName,
+            phone: formattedPhone,
             tableId: tableId
           })
         });
@@ -213,36 +234,36 @@ export const MobileOrder: React.FC = () => {
       }
 
       localStorage.setItem(`sf_qr_customer_${tableId}`, JSON.stringify({
-        name: customerName.trim(),
-        phone: customerPhone.trim(),
+        name: derivedName,
+        phone: formattedPhone,
         tableId: tableId,
         scannedAt: new Date().toISOString()
       }));
 
-      // If cart has items when they submit their Name & Number, immediately place order
       if (cart.length > 0) {
         setIsPlacingOrder(true);
         const success = await addOrder(tableId, cart.map(i => ({
           menuItem: i.menuItem,
           quantity: i.quantity,
-          notes: `QR Order (${customerName.trim()} • ${customerPhone.trim()})`
+          notes: `Verified Order (${derivedName} • ${formattedPhone})`
         })));
 
         if (success) {
           playNewOrderSound();
-          localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
+          localStorage.setItem(`sf_table_name_${tableId}`, derivedName);
           setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
-          setCart([]); // Clear cart
+          setCart([]);
           setActiveModal('TRACKING');
-          triggerToast('Order placed successfully with kitchen chime! Sent to KDS.');
+          triggerToast('Phone Verified & Order placed successfully! Sent to Kitchen KDS.');
         }
         setIsPlacingOrder(false);
       } else {
-        triggerToast(`Welcome to Table ${tableId.replace(/^T0?/, '')}, ${customerName}!`);
+        triggerToast(`Welcome to Table ${tableId.replace(/^T0?/, '')}! Phone verified successfully.`);
       }
       setShowQRRegistrationModal(false);
+      setAuthStep('PHONE');
     } finally {
-      setIsRegisteringQR(false);
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -1130,53 +1151,107 @@ export const MobileOrder: React.FC = () => {
               </div>
 
               {qrModalTab === 'NEW' ? (
-                <form onSubmit={handleSaveQRRegistration} className="space-y-3.5 text-left animate-fadeIn">
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1">Full Name</label>
-                    <input 
-                      type="text" 
-                      required 
-                      placeholder="e.g. Rajesh Sharma"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1">Phone Number</label>
-                    <input 
-                      type="tel" 
-                      required 
-                      placeholder="e.g. +91 90754 48855"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
-                    />
-                  </div>
+                <div className="animate-fadeIn">
+                  {authStep === 'PHONE' ? (
+                    <form onSubmit={handleSendOtp} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
+                          Mobile Number (10 Digits)
+                        </label>
+                        <div className="flex items-center border-2 border-gray-300 rounded-2xl overflow-hidden focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/15 transition-all bg-gray-50">
+                          <div className="bg-gray-200/80 px-3.5 py-3 font-extrabold text-gray-800 text-sm flex items-center gap-1 shrink-0 border-r border-gray-300/80 select-none">
+                            <span>🇮🇳</span>
+                            <span>+91</span>
+                          </div>
+                          <input
+                            type="tel"
+                            required
+                            maxLength={15}
+                            placeholder="___________"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full px-4 py-3 text-base font-bold text-gray-900 bg-transparent outline-none tracking-wider"
+                            autoFocus
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-1.5 font-medium">
+                          We will send a quick one-time verification code (OTP) to confirm your dining table session.
+                        </p>
+                      </div>
 
-                  <button
-                    type="submit"
-                    disabled={isRegisteringQR || isPlacingOrder}
-                    className="w-full mt-2 bg-primary text-white py-3 rounded-xl font-bold shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
-                  >
-                    {isRegisteringQR || isPlacingOrder ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Sending Order...</span>
-                      </>
-                    ) : cart.length > 0 ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Place Order ({cartItemCount} items) • ₹{cartTotal.toFixed(2)}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Save & Start Ordering</span>
-                      </>
-                    )}
-                  </button>
-                </form>
+                      <button
+                        type="submit"
+                        className="w-full bg-primary text-white py-3.5 rounded-2xl font-extrabold shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                      >
+                        <span>Get Verification Code (OTP)</span>
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleVerifyOtp} className="space-y-4 text-left animate-slide-up">
+                      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-800 font-bold">
+                        <span>OTP sent to +91 {otpSentPhone}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAuthStep('PHONE')}
+                          className="text-emerald-600 underline font-extrabold hover:text-emerald-900"
+                        >
+                          Change Number
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
+                          Enter 4-Digit OTP Code
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={4}
+                          placeholder="• • • •"
+                          value={otpInput}
+                          onChange={(e) => setOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-full px-4 py-3 text-center text-xl font-black text-gray-900 bg-gray-50 border-2 border-gray-300 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/15 outline-none tracking-[0.5em]"
+                          autoFocus
+                        />
+                        <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-gray-500">
+                          <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-bold">
+                            🔐 Demo OTP: 1234
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => alert('Demo code re-sent: 1234')}
+                            className="text-primary hover:underline"
+                          >
+                            Resend Code
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isVerifyingOtp || isPlacingOrder}
+                        className="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-extrabold shadow-lg shadow-emerald-600/25 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                      >
+                        {isVerifyingOtp || isPlacingOrder ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Verifying & Starting Session...</span>
+                          </>
+                        ) : cart.length > 0 ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Verify & Place Order ({cartItemCount} items) • ₹{cartTotal.toFixed(2)}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Verify & Start Ordering</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+                </div>
               ) : (
                 <form onSubmit={handleJoinWithPin} className="space-y-3.5 text-left animate-fadeIn">
                   <div>

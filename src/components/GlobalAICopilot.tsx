@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useRestaurant } from '../contexts/RestaurantContext';
 import { processCopilotQuery, type CopilotResponse } from '../utils/aiCopilotEngine';
 import { 
@@ -45,7 +45,12 @@ export const GlobalAICopilot: React.FC = () => {
 
   const { tables, orders, menuItems, setTableStatus, updateOrderStatus, showGlobalNotification } = useRestaurant();
   const navigate = useNavigate();
+  const location = useLocation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  if (location.pathname.startsWith('/order-now') || location.pathname.startsWith('/mobile-order')) {
+    return null;
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

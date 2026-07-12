@@ -27,10 +27,33 @@ const rawApiUrl = ((import.meta.env.VITE_API_BASE_URL as string) || 'http://loca
 const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 const WS_URL = API_BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '/ws');
 
+const DEFAULT_TABLES: Table[] = Array.from({ length: 10 }, (_, i) => ({
+  id: `T${String(i + 1).padStart(2, '0')}`,
+  name: `Table ${i + 1}`,
+  seats: i < 4 ? 2 : i < 8 ? 4 : 6,
+  status: 'AVAILABLE' as const
+}));
+
+const DEFAULT_MENU_ITEMS: MenuItem[] = [
+  { id: "m1", name: "Heirloom Burrata", price: 15.00, description: "Vine-ripe tomatoes, basil pesto, aged balsamic.", category: "Starters", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "320 kcal" },
+  { id: "m2", name: "Crispy Calamari", price: 16.00, description: "With wild garlic aioli, charred lemon.", category: "Starters", available: true, type: "NON-VEG", imageUrl: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&q=80&w=300", calories: "410 kcal" },
+  { id: "m3", name: "Truffle Parmesan Fries", price: 9.00, description: "Hand-cut potatoes, white truffle oil, parmesan.", category: "Starters", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1576107232684-1279f3908594?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "280 kcal" },
+  { id: "m4", name: "Garlic Butter Prawns", price: 18.00, description: "Sautéed in white wine, garlic, and fresh herbs.", category: "Starters", available: true, type: "NON-VEG", imageUrl: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&q=80&w=300", calories: "340 kcal" },
+  { id: "m6", name: "Wagyu Truffle Burger", price: 24.00, description: "A5 Wagyu beef, black truffle paste, gruyère cheese.", category: "Main Course", available: true, type: "NON-VEG", imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "850 kcal" },
+  { id: "m7", name: "Atlantic Salmon Steak", price: 29.00, description: "Pan-seared wild salmon, avocado crema, dill, asparagus.", category: "Main Course", available: true, type: "NON-VEG", imageUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "460 kcal" },
+  { id: "m8", name: "Forest Mushroom Risotto", price: 19.00, description: "Arborio rice, wild porcini mushrooms, parmesan.", category: "Main Course", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&q=80&w=300", calories: "550 kcal" },
+  { id: "m10", name: "Chicken Parmigiana", price: 23.00, description: "Crispy chicken breast, marinara, mozzarella, spaghetti.", category: "Main Course", available: true, type: "NON-VEG", imageUrl: "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&q=80&w=300", calories: "680 kcal" },
+  { id: "m12", name: "Ocean Spray Cocktail", price: 14.00, description: "Artisanal gin, blue curaçao, fresh lime juice, tonic.", category: "Beverages", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=300", calories: "180 kcal" },
+  { id: "m13", name: "Smoked Old Fashioned", price: 16.00, description: "Premium bourbon, orange peel, angostura bitters, smoke.", category: "Beverages", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "160 kcal" },
+  { id: "m15", name: "Mango Passionfruit Smoothie", price: 7.50, description: "Fresh mango pulp, passionfruit juice, greek yogurt.", category: "Beverages", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80&w=300", calories: "240 kcal" },
+  { id: "m18", name: "Matcha Lava Cake", price: 12.00, description: "Molten white chocolate matcha core, vanilla gelato.", category: "Desserts", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&q=80&w=300", calories: "450 kcal" },
+  { id: "m19", name: "Signature Tiramisu", price: 11.00, description: "Mascarpone cream, ladyfingers, cocoa dusting.", category: "Desserts", available: true, type: "VEG", imageUrl: "https://images.unsplash.com/photo-1586040140378-b5634cb4c8fc?auto=format&fit=crop&q=80&w=300", badge: "Best Seller", calories: "480 kcal" }
+];
+
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [tables, setTables] = useState<Table[]>([]);
+  const [tables, setTables] = useState<Table[]>(DEFAULT_TABLES);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(DEFAULT_MENU_ITEMS);
   const [globalToast, setGlobalToast] = useState<string | null>(null);
 
   const showGlobalNotification = (message: string) => {
@@ -48,16 +71,20 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       
       if (resTables.ok) {
         const data: Table[] = await resTables.json();
-        setTables(data.map(t => ({
-          ...t,
-          elapsedMinutes: t.seatedTime && t.status === 'OCCUPIED'
-            ? calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0)
-            : t.elapsedMinutes
-        })));
+        if (data && data.length > 0) {
+          setTables(data.map(t => ({
+            ...t,
+            elapsedMinutes: t.seatedTime && t.status === 'OCCUPIED'
+              ? calculateElapsedMinutes(t.seatedTime, t.elapsedMinutes || 0)
+              : t.elapsedMinutes
+          })));
+        }
       }
       if (resMenu.ok) {
         const data = await resMenu.json();
-        setMenuItems(data);
+        if (data && data.length > 0) {
+          setMenuItems(data);
+        }
       }
       if (resOrders.ok) {
         const data: Order[] = await resOrders.json();

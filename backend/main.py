@@ -180,34 +180,6 @@ def seed_initial_data(db: Session):
             db.add(table)
         db.commit()
 
-    # Seed a sample order if empty
-    if db.query(models.Order).count() == 0:
-        ord_sample = models.Order(
-            id="ord-101",
-            tableId="T04",
-            status="PREPARING",
-            amount=57.00,
-            time=datetime.datetime.now().isoformat(),
-            elapsedMinutes=10,
-            allergyAlert=False
-        )
-        db.add(ord_sample)
-        db.commit()
-        
-        # Link T04 state
-        table_04 = db.query(models.Table).filter(models.Table.id == "T04").first()
-        if table_04:
-            table_04.status = "OCCUPIED"
-            table_04.amount = 57.00
-            table_04.seatedTime = datetime.datetime.now().isoformat()
-            table_04.elapsedMinutes = 10
-            db.commit()
-
-        item1 = models.OrderItem(orderId="ord-101", menuItemId="m7", quantity=1, completed=False)
-        item2 = models.OrderItem(orderId="ord-101", menuItemId="m12", quantity=2, completed=False)
-        db.add_all([item1, item2])
-        db.commit()
-
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
@@ -292,6 +264,8 @@ async def shutdown_prisma():
 # --- TABLES APIS ---
 @app.get("/api/tables", response_model=List[schemas.TableSchema])
 def get_tables(db: Session = Depends(get_db)):
+    if db.query(models.Table).count() == 0:
+        seed_initial_data(db)
     return db.query(models.Table).order_by(models.Table.id).all()
 
 @app.post("/api/tables", response_model=schemas.TableSchema)
@@ -364,6 +338,8 @@ def get_customers(db: Session = Depends(get_db)):
 # --- MENU APIS ---
 @app.get("/api/menu", response_model=List[schemas.MenuItemSchema])
 def get_menu(db: Session = Depends(get_db)):
+    if db.query(models.MenuItem).count() == 0:
+        seed_initial_data(db)
     return db.query(models.MenuItem).all()
 
 @app.post("/api/menu", response_model=schemas.MenuItemSchema)
