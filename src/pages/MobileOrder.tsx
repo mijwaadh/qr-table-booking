@@ -36,7 +36,7 @@ interface CartItem {
 export const MobileOrder: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { menuItems, addOrder, orders, settleBill, setTableStatus } = useRestaurant();
+  const { tables, menuItems, addOrder, orders, settleBill, setTableStatus } = useRestaurant();
 
   const rawTableId = searchParams.get('tableId') || searchParams.get('table') || 'T01';
   const normalizeTableId = (id: string): string => {
@@ -107,6 +107,17 @@ export const MobileOrder: React.FC = () => {
     getCutlery: false
   });
 
+  const currentTableObj = tables?.find(t => t.id === tableId);
+  const isTableOccupied = currentTableObj && (currentTableObj.status === 'OCCUPIED' || currentTableObj.status === 'PAYMENT_PENDING');
+
+  // Auto-trigger registration/join modal on load if not already logged in
+  React.useEffect(() => {
+    const savedCustomer = localStorage.getItem(`sf_qr_customer_${tableId}`);
+    if (!savedCustomer) {
+      setShowQRRegistrationModal(true);
+    }
+  }, [tableId]);
+
   const handleSendServiceRequest = () => {
     const selected: string[] = [];
     if (serviceCheckboxes.callWaiter) selected.push('Call Waiter');
@@ -132,9 +143,44 @@ export const MobileOrder: React.FC = () => {
     });
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0 || isPlacingOrder) return;
-    // Open the Name and Number prompt when customer clicks Place Order
+    
+    // Check if we are already logged in (either via OTP or by entering PIN/Friend name)
+    const savedCustomer = localStorage.getItem(`sf_qr_customer_${tableId}`);
+    if (savedCustomer) {
+      try {
+        const parsed = JSON.parse(savedCustomer);
+        const hasPhone = parsed.phone && parsed.phone.length >= 10 && !parsed.phone.toLowerCase().includes('joined');
+        const hasJoined = parsed.phone && parsed.phone.toLowerCase().includes('joined');
+        if (hasPhone || hasJoined) {
+          // Already logged in! Place order immediately.
+          setIsPlacingOrder(true);
+          const success = await addOrder(tableId, cart.map(i => ({
+            menuItem: i.menuItem,
+            quantity: i.quantity,
+            notes: hasPhone 
+              ? `Verified Order (${parsed.name} • ${parsed.phone})`
+              : `Friend Order (${parsed.name})`
+          })));
+
+          if (success) {
+            playNewOrderSound();
+            localStorage.setItem(`sf_table_name_${tableId}`, parsed.name);
+            setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
+            setCart([]);
+            setActiveModal('TRACKING');
+            triggerToast('Order placed successfully! Sent to Kitchen.');
+          }
+          setIsPlacingOrder(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to parse saved customer info:', err);
+      }
+    }
+
+    // Otherwise, show registration/join modal
     setShowQRRegistrationModal(true);
   };
 
@@ -267,7 +313,7 @@ export const MobileOrder: React.FC = () => {
     }
   };
 
-  const handleJoinWithPin = (e: React.FormEvent) => {
+  const handleJoinWithPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinPinInput.trim() || !customerName.trim()) {
       alert('Please enter both your Name and the Table PIN.');
@@ -283,9 +329,32 @@ export const MobileOrder: React.FC = () => {
       tableId: tableId,
       scannedAt: new Date().toISOString()
     }));
+
+    if (cart.length > 0) {
+      setIsPlacingOrder(true);
+      try {
+        const success = await addOrder(tableId, cart.map(i => ({
+          menuItem: i.menuItem,
+          quantity: i.quantity,
+          notes: `Friend Order (${customerName.trim()})`
+        })));
+
+        if (success) {
+          playNewOrderSound();
+          localStorage.setItem(`sf_table_name_${tableId}`, customerName.trim());
+          setTableStatus(tableId, 'OCCUPIED', activeTableTotal + cartTotal);
+          setCart([]);
+          setActiveModal('TRACKING');
+          triggerToast(`Joined Table ${tableId.replace(/^T0?/, '')} and order placed successfully!`);
+        }
+      } finally {
+        setIsPlacingOrder(false);
+      }
+    } else {
+      setActiveModal('TRACKING');
+      triggerToast(`Joined Table ${tableId.replace(/^T0?/, '')} session successfully! Synced with friends.`);
+    }
     setShowQRRegistrationModal(false);
-    setActiveModal('TRACKING');
-    triggerToast(`Joined Table ${tableId.replace(/^T0?/, '')} session successfully! Synced with friends.`);
   };
 
   const loadRazorpayScript = () => {
@@ -851,7 +920,7 @@ export const MobileOrder: React.FC = () => {
                   className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl active:scale-95 transition-all text-sm shadow-sm flex items-center justify-center gap-2"
                 >
                   <Receipt className="w-4 h-4" />
-                  <span>View & Share Receipt (WhatsApp / PDF)</span>
+                  <span>View & Download Receipt (PDF)</span>
                 </button>
 
                 {/* Items Box with PLACED BY badge exactly like screenshot */}
@@ -1125,35 +1194,32 @@ export const MobileOrder: React.FC = () => {
               
               <div>
                 <h3 className="text-xl font-extrabold text-on-surface">
-                  {cart.length > 0 ? 'Confirm Your Order' : `Table ${tableId.replace(/^T0?/, '')} Dining`}
+                  {isTableOccupied ? `Join Table ${tableId.replace(/^T0?/, '')}` : (cart.length > 0 ? 'Confirm Your Order' : `Table ${tableId.replace(/^T0?/, '')} Dining`)}
                 </h3>
                 <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                  Start a new table session or join your friends with the Table PIN.
+                  {isTableOccupied 
+                    ? "This table already has an active session. Please enter your name and the Table PIN from your friend's phone to join."
+                    : 'Start a new dining session by verifying your mobile number.'}
                 </p>
               </div>
 
-              {/* Tabs: Start Session vs Join with PIN */}
-              <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-bold">
-                <button
-                  type="button"
-                  onClick={() => setQrModalTab('NEW')}
-                  className={`flex-1 py-2 rounded-lg transition-all ${qrModalTab === 'NEW' ? 'bg-white text-primary shadow-sm font-extrabold' : 'text-gray-600 hover:text-gray-900'}`}
-                >
-                  Start Session / Host
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQrModalTab('JOIN')}
-                  className={`flex-1 py-2 rounded-lg transition-all ${qrModalTab === 'JOIN' ? 'bg-white text-primary shadow-sm font-extrabold' : 'text-gray-600 hover:text-gray-900'}`}
-                >
-                  Join with PIN / Friend
-                </button>
-              </div>
-
-              {qrModalTab === 'NEW' ? (
+              {!isTableOccupied ? (
                 <div className="animate-fadeIn">
                   {authStep === 'PHONE' ? (
                     <form onSubmit={handleSendOtp} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
+                          Your Name (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Amit Kumar"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all bg-gray-50 text-gray-900"
+                        />
+                      </div>
+
                       <div>
                         <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
                           Mobile Number (10 Digits)
@@ -1262,7 +1328,7 @@ export const MobileOrder: React.FC = () => {
                       placeholder="e.g. Amit (Friend)"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all"
+                      className="w-full px-4 py-2.5 rounded-xl border border-outline-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm font-medium outline-none transition-all text-gray-900"
                     />
                   </div>
                   <div>
@@ -1278,13 +1344,22 @@ export const MobileOrder: React.FC = () => {
                     />
                     <p className="text-[10px] text-gray-500 mt-1">Ask your friend sitting at Table {tableId.replace(/^T0?/, '')} for the Table PIN.</p>
                   </div>
-
                   <button
                     type="submit"
-                    className="w-full mt-2 bg-[#683323] text-white py-3 rounded-xl font-bold shadow-lg shadow-[#683323]/25 hover:bg-[#683323]/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm"
+                    disabled={isPlacingOrder}
+                    className="w-full mt-2 bg-[#683323] text-white py-3 rounded-xl font-bold shadow-lg shadow-[#683323]/25 hover:bg-[#683323]/90 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
                   >
-                    <UserCheck className="w-4 h-4" />
-                    <span>Join Table Session & Sync</span>
+                    {isPlacingOrder ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Placing Order...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4" />
+                        <span>Join Table Session & Sync</span>
+                      </>
+                    )}
                   </button>
                 </form>
               )}

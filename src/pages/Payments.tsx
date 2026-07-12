@@ -540,20 +540,13 @@ export const Payments: React.FC = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-3 gap-md">
+                <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-2 gap-md">
                   <button 
                     onClick={handlePrintAndSettle}
                     className="bg-primary text-on-primary py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 font-bold"
                   >
                     <Receipt className="w-4 h-4" />
                     <span>Print & Settle</span>
-                  </button>
-                  <button 
-                    onClick={handleCheckoutConfirm}
-                    className="bg-emerald-700 text-white py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/20 font-bold"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Settle & WhatsApp</span>
                   </button>
                   <button 
                     onClick={handleGenerateBill}
