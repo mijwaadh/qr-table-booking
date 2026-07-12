@@ -78,7 +78,6 @@ export const MobileOrder: React.FC = () => {
       return pin;
     } catch { return '2744'; }
   });
-  const [qrModalTab, setQrModalTab] = useState<'NEW' | 'JOIN'>('NEW');
   const [joinPinInput, setJoinPinInput] = useState('');
   const [, setRazorpayPaymentId] = useState<string | null>(null);
 
