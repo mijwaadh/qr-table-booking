@@ -139,32 +139,6 @@ export const Payments: React.FC = () => {
     handleGenerateBill();
     setTimeout(() => {
       if (currentTable) settleBill(currentTable.id, selectedMethod);
-      const invoiceNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
-      const timeStr = new Date().toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      const storedCustomer = getStoredCustomerInfo(currentTable.id);
-      setPaidOrderData({
-        invoiceNumber: invoiceNum,
-        tableId: currentTable.id,
-        items: tableOrders.length > 0 
-          ? tableOrders.flatMap(o => o.items)
-          : [{ menuItem: { id: 'd1', name: `Dine-In Charges (${currentTable.name})`, price: subtotal, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }],
-        subtotal: subtotal,
-        gst: gst,
-        serviceCharge: serviceCharge,
-        total: total,
-        paymentMethod: selectedMethod,
-        paymentStatus: 'Paid',
-        time: timeStr,
-        customerName: storedCustomer.customerName || 'Dining Guest',
-        customerPhone: storedCustomer.customerPhone
-      });
-      setShowSuccessModal(true);
     }, 500);
   };
 
