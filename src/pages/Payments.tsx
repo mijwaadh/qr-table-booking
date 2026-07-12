@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useRestaurant } from '../contexts/RestaurantContext';
 import TopNavBar from '../components/TopNavBar';
 import BillPreviewModal from '../components/BillPreviewModal';
+import PaymentSuccessModal from '../components/PaymentSuccessModal';
+import { type ReceiptOrderInfo } from '../utils/whatsappReceipt';
 import { 
   CheckCircle2, 
   ArrowRight, 
@@ -30,6 +32,7 @@ export const Payments: React.FC = () => {
   const [discountCode, setDiscountCode] = useState('');
   const [discountApplied, setDiscountApplied] = useState(0); // in percent
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [paidOrderData, setPaidOrderData] = useState<ReceiptOrderInfo | null>(null);
 
   // Cash payment calculator states
   const [customerPaidAmount, setCustomerPaidAmount] = useState<number | ''>(1000);
@@ -121,6 +124,28 @@ export const Payments: React.FC = () => {
     handleGenerateBill();
     setTimeout(() => {
       if (currentTable) settleBill(currentTable.id, selectedMethod);
+      const invoiceNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+      const timeStr = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      setPaidOrderData({
+        invoiceNumber: invoiceNum,
+        tableId: currentTable.id,
+        items: tableOrders.length > 0 
+          ? tableOrders.flatMap(o => o.items)
+          : [{ menuItem: { id: 'd1', name: `Dine-In Charges (${currentTable.name})`, price: subtotal, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }],
+        subtotal: subtotal,
+        gst: gst,
+        serviceCharge: serviceCharge,
+        total: total,
+        paymentMethod: selectedMethod,
+        paymentStatus: 'Paid',
+        time: timeStr
+      });
       setShowSuccessModal(true);
     }, 500);
   };
@@ -129,6 +154,30 @@ export const Payments: React.FC = () => {
     playBilledSound();
     if (currentTable) {
       settleBill(currentTable.id, selectedMethod);
+      const invoiceNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+      const timeStr = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      setPaidOrderData({
+        invoiceNumber: invoiceNum,
+        tableId: currentTable.id,
+        items: tableOrders.length > 0 
+          ? tableOrders.flatMap(o => o.items)
+          : [{ menuItem: { id: 'd1', name: `Dine-In Charges (${currentTable.name})`, price: subtotal, description: '', category: 'Main Course', available: true, type: 'VEG' }, quantity: 1 }],
+        subtotal: subtotal,
+        gst: gst,
+        serviceCharge: serviceCharge,
+        total: total,
+        paymentMethod: selectedMethod,
+        paymentStatus: 'Paid',
+        time: timeStr
+      });
+      setShowSuccessModal(true);
+      return;
     }
     setShowSuccessModal(false);
     setDiscountApplied(0);
@@ -185,8 +234,31 @@ export const Payments: React.FC = () => {
       orderType: sendKOTToKitchen ? 'PickUp (KOT Sent to Kitchen)' : 'PickUp (Direct Counter)',
       customerName: parcelCustomerName
     });
+    const invoiceNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const timeStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    setPaidOrderData({
+      invoiceNumber: invoiceNum,
+      tableId: 'Take-Away',
+      tableName: `${parcelCustomerName} (${parcelCustomerPhone || 'Take-Away'})`,
+      items: parcelCart,
+      subtotal: parcelSubtotal,
+      gst: parcelGst,
+      serviceCharge: 0,
+      total: parcelTotal,
+      paymentMethod: parcelPaymentMethod,
+      paymentStatus: 'Paid',
+      time: timeStr,
+      customerName: parcelCustomerName,
+      customerPhone: parcelCustomerPhone
+    });
     setShowQuickBillModal(false);
-    setShowBillPreview(true);
+    setShowSuccessModal(true);
     setParcelCart([]);
   };
 
@@ -447,20 +519,27 @@ export const Payments: React.FC = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-2 gap-md">
+                <div className="p-lg bg-surface border-t border-outline-variant grid grid-cols-3 gap-md">
                   <button 
                     onClick={handlePrintAndSettle}
                     className="bg-primary text-on-primary py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 font-bold"
                   >
                     <Receipt className="w-4 h-4" />
-                    <span>Print & Settle Bill</span>
+                    <span>Print & Settle</span>
+                  </button>
+                  <button 
+                    onClick={handleCheckoutConfirm}
+                    className="bg-emerald-700 text-white py-3 rounded-xl font-headline-sm text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-700/20 font-bold"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Settle & WhatsApp</span>
                   </button>
                   <button 
                     onClick={handleGenerateBill}
                     className="bg-surface-container-high border border-outline-variant text-on-surface py-3 rounded-xl font-headline-sm text-sm hover:bg-surface-container active:scale-[0.98] transition-all flex items-center justify-center gap-2 font-semibold"
                   >
                     <Printer className="w-4 h-4 text-outline" />
-                    <span>Print Receipt</span>
+                    <span>Preview Bill</span>
                   </button>
                 </div>
 
@@ -671,33 +750,22 @@ export const Payments: React.FC = () => {
       />
 
       {/* Success Modal Overlay */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-md animate-fade-in">
-          <div className="bg-white rounded-3xl p-2xl w-full max-w-md mx-md flex flex-col items-center text-center bill-preview-shadow transform transition-transform duration-300 scale-100">
-            <div className="w-24 h-24 bg-primary-container/20 rounded-full flex items-center justify-center mb-xl text-primary">
-              <CheckCircle2 className="w-16 h-16 fill-primary text-white" />
-            </div>
-            <h2 className="font-display text-headline-lg text-on-surface mb-sm font-bold text-2xl">Payment Successful</h2>
-            <p className="font-body-md text-on-surface-variant mb-2xl text-sm">
-              Bill for Table {currentTable?.name || '18'} has been processed successfully via {selectedMethod}. A digital copy has been sent to the customer.
-            </p>
-            <div className="w-full space-y-md">
-              <button 
-                onClick={handleCheckoutConfirm}
-                className="w-full bg-primary text-on-primary py-md rounded-xl font-headline-sm text-headline-sm hover:brightness-110 active:scale-[0.98] transition-all font-bold text-base"
-              >
-                Confirm Settle
-              </button>
-              <button 
-                onClick={() => setShowSuccessModal(false)}
-                className="w-full bg-surface-container-high text-on-surface py-md rounded-xl font-label-md text-label-md hover:bg-surface-container transition-all font-semibold text-sm"
-              >
-                Go Back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PaymentSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          setDiscountApplied(0);
+          setDiscountCode('');
+          setSelectedTableId(null);
+        }}
+        orderInfo={paidOrderData}
+        onBackToHome={() => {
+          setShowSuccessModal(false);
+          setDiscountApplied(0);
+          setDiscountCode('');
+          setSelectedTableId(null);
+        }}
+      />
 
     </div>
   );

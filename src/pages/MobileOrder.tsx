@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import type { MenuItem } from '../types';
 import { playNewOrderSound, playCashPaymentSound, playItemTapSound, playBilledSound } from '../utils/audioAlerts';
+import PaymentSuccessModal from '../components/PaymentSuccessModal';
+import { type ReceiptOrderInfo } from '../utils/whatsappReceipt';
 
 interface CartItem {
   menuItem: MenuItem;
@@ -83,6 +85,8 @@ export const MobileOrder: React.FC = () => {
 
   // Local Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [paidOrderInfo, setPaidOrderInfo] = useState<ReceiptOrderInfo | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // Modal Views
   const [activeModal, setActiveModal] = useState<'NONE' | 'CHECKOUT' | 'TRACKING' | 'BILLING' | 'SERVICE'>('NONE');
@@ -277,6 +281,34 @@ export const MobileOrder: React.FC = () => {
     });
   };
 
+  const triggerPaymentSuccess = (methodName: string, amount: number) => {
+    const invoiceNum = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const timeStr = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    setPaidOrderInfo({
+      invoiceNumber: invoiceNum,
+      tableId: tableId,
+      items: activeTableOrders.flatMap(o => o.items).length > 0
+        ? activeTableOrders.flatMap(o => o.items)
+        : cart.map(i => ({ menuItem: i.menuItem, quantity: i.quantity })),
+      subtotal: activeTableSubtotal || cartSubtotal,
+      gst: activeTableGst || (cartSubtotal * 0.05),
+      serviceCharge: activeTableService || cartServiceCharge,
+      total: amount,
+      paymentMethod: methodName,
+      paymentStatus: 'Paid',
+      time: timeStr,
+      customerName: customerName || 'Dining Guest',
+      customerPhone: customerPhone
+    });
+    setShowSuccessModal(true);
+  };
+
   const handleSimulatePayment = async () => {
     if (selectedMethod === 'Online') {
       setIsProcessingPayment(true);
@@ -288,7 +320,8 @@ export const MobileOrder: React.FC = () => {
           setIsProcessingPayment(false);
           setActiveModal('NONE');
           settleBill(tableId, 'Online (Simulated)');
-          triggerToast('Online payment successful! Table is now free.');
+          triggerToast('Online payment successful! Receipt ready.');
+          triggerPaymentSuccess('Online (Simulated)', activeTableTotal);
         }, 1500);
         return;
       }
@@ -307,7 +340,8 @@ export const MobileOrder: React.FC = () => {
           setRazorpayPaymentId(response.razorpay_payment_id || `pay_${Math.random().toString(36).substring(2, 10)}`);
           setActiveModal('NONE');
           settleBill(tableId, `Online (Razorpay: ${response.razorpay_payment_id || 'RZP_SUCCESS'})`);
-          triggerToast(`₹${activeTableTotal.toFixed(2)} Paid via Razorpay successfully! Payment ID: ${response.razorpay_payment_id || 'RZP_SUCCESS'}`);
+          triggerToast(`₹${activeTableTotal.toFixed(2)} Paid via Razorpay successfully!`);
+          triggerPaymentSuccess('Online (Razorpay)', activeTableTotal);
         },
         prefill: {
           name: customerName || 'Dining Guest',
@@ -339,6 +373,7 @@ export const MobileOrder: React.FC = () => {
           setActiveModal('NONE');
           settleBill(tableId, 'Online (Razorpay Fallback)');
           triggerToast('Online payment processed via fallback gateway.');
+          triggerPaymentSuccess('Online (Fallback)', activeTableTotal);
         }, 1000);
       }
     } else {
@@ -349,7 +384,8 @@ export const MobileOrder: React.FC = () => {
       }
       setTableStatus(tableId, 'PAYMENT_PENDING', activeTableTotal);
       setActiveModal('NONE');
-      triggerToast('Cashier notified with sound alert! Please settle payment at the counter.');
+      triggerToast('Cashier notified with sound alert! Receipt ready for counter payment.');
+      triggerPaymentSuccess('Cash (Counter)', activeTableTotal);
     }
   };
 
@@ -786,6 +822,16 @@ export const MobileOrder: React.FC = () => {
                     Order Again
                   </button>
                 </div>
+                <button 
+                  onClick={() => {
+                    triggerPaymentSuccess('Cash / Online', activeTableTotal);
+                    setActiveModal('NONE');
+                  }}
+                  className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl active:scale-95 transition-all text-sm shadow-sm flex items-center justify-center gap-2"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>View & Share Receipt (WhatsApp / PDF)</span>
+                </button>
 
                 {/* Items Box with PLACED BY badge exactly like screenshot */}
                 <div className="border border-gray-200 rounded-2xl p-4 relative pt-6 mt-6 bg-white shadow-sm">
@@ -1170,6 +1216,18 @@ export const MobileOrder: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Payment Success Modal with WhatsApp Share and PDF Download */}
+        <PaymentSuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          orderInfo={paidOrderInfo}
+          onBackToHome={() => {
+            setShowSuccessModal(false);
+            setActiveModal('NONE');
+            navigate('/');
+          }}
+        />
 
       </main>
     </div>
