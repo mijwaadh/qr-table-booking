@@ -87,21 +87,6 @@ export const Payments: React.FC = () => {
   const parcelTotal = parcelSubtotal + parcelGst;
   const parcelReturnAmount = typeof parcelPaidAmount === 'number' && parcelPaidAmount > parcelTotal ? (parcelPaidAmount - parcelTotal) : 0;
 
-  // Retrieve customer phone stored during OTP login on mobile ordering
-  const getStoredCustomerInfo = (tableId: string) => {
-    try {
-      const saved = localStorage.getItem(`sf_qr_customer_${tableId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          customerName: parsed.name || '',
-          customerPhone: parsed.phone || ''
-        };
-      }
-    } catch { /* ignore */ }
-    return { customerName: '', customerPhone: '' };
-  };
-
   const handleApplyDiscount = () => {
     if (discountCode.toUpperCase() === 'SF20') {
       setDiscountApplied(20);
