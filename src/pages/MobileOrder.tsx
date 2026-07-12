@@ -78,8 +78,8 @@ export const MobileOrder: React.FC = () => {
       return pin;
     } catch { return '2744'; }
   });
-  const [joinPinInput, setJoinPinInput] = useState('');
   const [, setRazorpayPaymentId] = useState<string | null>(null);
+  const [showRazorpaySimulation, setShowRazorpaySimulation] = useState(false);
 
   // Phone OTP Authentication State
   const [authStep, setAuthStep] = useState<'PHONE' | 'OTP'>('PHONE');
@@ -400,6 +400,12 @@ export const MobileOrder: React.FC = () => {
 
   const handleSimulatePayment = async () => {
     if (selectedMethod === 'Online') {
+      const realKey = import.meta.env.VITE_RAZORPAY_KEY;
+      if (!realKey) {
+        setShowRazorpaySimulation(true);
+        return;
+      }
+
       setIsProcessingPayment(true);
       const isRazorpayLoaded = await loadRazorpayScript();
       
@@ -418,7 +424,7 @@ export const MobileOrder: React.FC = () => {
       setIsProcessingPayment(false);
       const amountInPaise = Math.max(100, Math.round(activeTableTotal * 100)); // e.g. ₹400 -> 40000 paise
       const options = {
-        key: 'rzp_test_DemoTableOrderKey', // Test key for demo/offline
+        key: realKey,
         amount: amountInPaise,
         currency: 'INR',
         name: 'Antigravity Restaurant & Bar',
@@ -1377,6 +1383,70 @@ export const MobileOrder: React.FC = () => {
             navigate('/');
           }}
         />
+
+        {/* Razorpay Simulation Modal */}
+        {showRazorpaySimulation && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-[#0b1220] rounded-3xl shadow-2xl max-w-sm w-full border border-gray-800 text-center relative overflow-hidden text-white">
+              {/* Razorpay branding header */}
+              <div className="bg-[#02042b] p-6 border-b border-gray-800 flex flex-col items-center">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[#3399FF] font-black tracking-tight text-xl font-sans flex items-center">
+                    <span className="text-white">Razor</span>pay
+                  </span>
+                  <span className="bg-[#3399FF]/10 text-[#3399FF] text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Sandbox
+                  </span>
+                </div>
+                <h4 className="text-sm font-semibold text-gray-300">Antigravity Restaurant & Bar</h4>
+                <p className="text-xs text-gray-500 mt-0.5">Table {tableId.replace(/^T0?/, '')} Dining Bill</p>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="bg-gray-900/60 rounded-2xl p-4 border border-gray-800/80">
+                  <span className="text-xs text-gray-400 font-medium block mb-1">Amount to Pay</span>
+                  <span className="text-3xl font-black text-white">₹{activeTableTotal.toFixed(2)}</span>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      playBilledSound();
+                      const rzpId = `pay_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+                      setShowRazorpaySimulation(false);
+                      setActiveModal('NONE');
+                      settleBill(tableId, `Online (Razorpay: ${rzpId})`);
+                      triggerToast(`₹${activeTableTotal.toFixed(2)} Paid via Razorpay successfully!`);
+                      triggerPaymentSuccess('Online (Razorpay)', activeTableTotal);
+                    }}
+                    className="w-full bg-[#3399FF] hover:bg-[#2288ee] text-white py-3.5 rounded-2xl font-bold transition-all shadow-lg shadow-[#3399FF]/15 active:scale-[0.98]"
+                  >
+                    Simulate Successful Payment
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      alert("Razorpay Payment Failed: Simulated bank decline.");
+                    }}
+                    className="w-full bg-red-950/40 hover:bg-red-950/60 border border-red-900/50 text-red-400 py-3 rounded-2xl font-bold transition-all active:scale-[0.98]"
+                  >
+                    Simulate Failed Payment
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setShowRazorpaySimulation(false);
+                      triggerToast('Razorpay payment popup closed.');
+                    }}
+                    className="w-full bg-transparent text-gray-400 hover:text-white py-2 text-sm font-semibold transition-colors"
+                  >
+                    Cancel & Go Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </main>
     </div>
